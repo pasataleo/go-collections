@@ -15,36 +15,6 @@ type hashSet[O any] struct {
 	converter objects.ObjectConverter[O]
 }
 
-type hashSetIterator[O any] struct {
-	set *hashSet[O]
-
-	keys []uint64
-	keyI int
-
-	valueI int
-}
-
-func (iterator *hashSetIterator[O]) HasNext() bool {
-	return iterator.keyI < len(iterator.keys)
-}
-
-func (iterator *hashSetIterator[O]) Next() (O, error) {
-	if iterator.keyI < 0 || iterator.keyI >= len(iterator.keys) {
-		var obj O
-		return obj, errors.New(nil, ErrorCodeOutOfBounds, "out of bounds")
-	}
-
-	currentSlice := iterator.set.values[iterator.keys[iterator.keyI]]
-
-	value := currentSlice[iterator.valueI]
-	iterator.valueI = iterator.valueI + 1
-	if iterator.valueI >= len(currentSlice) {
-		iterator.keyI = iterator.keyI + 1
-		iterator.valueI = 0
-	}
-	return value, nil
-}
-
 func NewHashSetT[O any](converter objects.ObjectConverter[O]) Set[O] {
 	return &hashSet[O]{
 		values:    make(map[uint64][]O),
@@ -143,19 +113,7 @@ func (set *hashSet[O]) Contains(value O) bool {
 }
 
 func (set *hashSet[O]) ContainsAll(values Collection[O]) bool {
-	for iterator := values.Iterator(); iterator.HasNext(); {
-		value, err := iterator.Next()
-		if err != nil {
-			// This shouldn't happen as we are checking HasNext first, but
-			// something weird could happen with threading.
-			panic(err)
-		}
-
-		if !set.Contains(value) {
-			return false
-		}
-	}
-	return true
+	return collectionContainsAll[O](set, values)
 }
 
 func (set *hashSet[O]) Add(value O) error {
@@ -173,20 +131,7 @@ func (set *hashSet[O]) Add(value O) error {
 }
 
 func (set *hashSet[O]) AddAll(values Collection[O]) error {
-	var multi error
-	for iterator := values.Iterator(); iterator.HasNext(); {
-		value, err := iterator.Next()
-		if err != nil {
-			// This shouldn't happen as we are checking HasNext first, but
-			// something weird could happen with threading.
-			panic(err)
-		}
-
-		if err := set.Add(value); err != nil {
-			multi = errors.Append(multi, err)
-		}
-	}
-	return multi
+	return collectionAddAll[O](set, values)
 }
 
 func (set *hashSet[O]) Remove(value O) error {
@@ -203,20 +148,7 @@ func (set *hashSet[O]) Remove(value O) error {
 }
 
 func (set *hashSet[O]) RemoveAll(values Collection[O]) error {
-	var multi error
-	for iterator := values.Iterator(); iterator.HasNext(); {
-		value, err := iterator.Next()
-		if err != nil {
-			// This shouldn't really happen unless someone is behaving badly
-			// with threads.
-			panic(err)
-		}
-
-		if err := set.Remove(value); err != nil {
-			multi = errors.Append(multi, err)
-		}
-	}
-	return multi
+	return collectionRemoveAll[O](set, values)
 }
 
 func (set *hashSet[O]) Size() int {

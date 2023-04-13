@@ -2,6 +2,10 @@ module github.com/pasataleo/go-collections
 
 go 1.19
 
+replace (
+	github.com/pasataleo/go-objects => ../go-objects
+)
+
 require (
 	github.com/pasataleo/go-errors v0.1.2
 	github.com/pasataleo/go-objects v0.1.1

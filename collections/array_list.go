@@ -1,9 +1,6 @@
 package collections
 
 import (
-	"bytes"
-	"fmt"
-
 	"github.com/pasataleo/go-errors/errors"
 	"github.com/pasataleo/go-objects/objects"
 )
@@ -29,69 +26,21 @@ func NewArrayList[O objects.Object]() List[O] {
 // Object implementation
 
 func (list *arrayList[O]) Equals(other any) bool {
-	if lOther, ok := other.(List[O]); ok {
-		if lOther.Size() != list.Size() {
-			return false
-		}
-
-		for ix := 0; ix < list.Size(); ix++ {
-			left, err := list.Get(ix)
-			if err != nil {
-				panic(err)
-			}
-
-			right, err := lOther.Get(ix)
-			if err != nil {
-				panic(err)
-			}
-
-			if !list.converter.Equals(left, right) {
-				return false
-			}
-		}
-		return true
-	}
-
-	return false
+	return listEquals[O](list, other, list.converter)
 }
 
 func (list *arrayList[O]) HashCode() uint64 {
-	hash := uint64(13001)
-	for ix := 0; ix < list.Size(); ix++ {
-		value, err := list.Get(ix)
-		if err != nil {
-			panic(err)
-		}
-		hash = hash * list.converter.HashCode(value)
-	}
-	return hash
+	return listHashCode[O](list, list.converter)
 }
 
 func (list *arrayList[O]) ToString() string {
-	var buffer bytes.Buffer
-	buffer.WriteString("[")
-	for ix := 0; ix < list.Size(); ix++ {
-		value, err := list.Get(ix)
-		if err != nil {
-			// This shouldn't happen, but maybe someone could be editing the
-			// list in parallel while we're converting it to a string.
-			panic(err)
-		}
-
-		if ix == 0 {
-			buffer.WriteString(list.converter.ToString(value))
-		} else {
-			buffer.WriteString(fmt.Sprintf(",%s", list.converter.ToString(value)))
-		}
-	}
-	buffer.WriteString("]")
-	return buffer.String()
+	return listString[O](list, list.converter)
 }
 
 // Iterable implementation
 
 func (list *arrayList[O]) Iterator() objects.Iterator[O] {
-	return &listIterator[O]{
+	return &arrayListIterator[O]{
 		current: 0,
 		list:    list,
 	}
@@ -104,19 +53,7 @@ func (list *arrayList[O]) Contains(value O) bool {
 }
 
 func (list *arrayList[O]) ContainsAll(values Collection[O]) bool {
-	for iterator := values.Iterator(); iterator.HasNext(); {
-		value, err := iterator.Next()
-		if err != nil {
-			// This shouldn't happen as we are checking HasNext first, but
-			// something weird could happen with threading.
-			panic(err)
-		}
-
-		if !list.Contains(value) {
-			return false
-		}
-	}
-	return true
+	return collectionContainsAll[O](list, values)
 }
 
 func (list *arrayList[O]) Add(value O) error {
@@ -125,20 +62,7 @@ func (list *arrayList[O]) Add(value O) error {
 }
 
 func (list *arrayList[O]) AddAll(values Collection[O]) error {
-	var multi error
-	for iterator := values.Iterator(); iterator.HasNext(); {
-		value, err := iterator.Next()
-		if err != nil {
-			// This shouldn't happen as we are checking HasNext first, but
-			// something weird could happen with threading.
-			panic(err)
-		}
-
-		if err := list.Add(value); err != nil {
-			multi = errors.Append(multi, err)
-		}
-	}
-	return multi
+	return collectionAddAll[O](list, values)
 }
 
 func (list *arrayList[O]) Remove(value O) error {
@@ -150,20 +74,7 @@ func (list *arrayList[O]) Remove(value O) error {
 }
 
 func (list *arrayList[O]) RemoveAll(values Collection[O]) error {
-	var multi error
-	for iterator := values.Iterator(); iterator.HasNext(); {
-		value, err := iterator.Next()
-		if err != nil {
-			// This shouldn't really happen unless someone is behaving badly
-			// with threads.
-			panic(err)
-		}
-
-		if err := list.Remove(value); err != nil {
-			multi = errors.Append(multi, err)
-		}
-	}
-	return multi
+	return collectionRemoveAll[O](list, values)
 }
 
 func (list *arrayList[O]) Size() int {
@@ -173,18 +84,7 @@ func (list *arrayList[O]) Size() int {
 // List implementation
 
 func (list *arrayList[O]) IndexOf(value O) int {
-	for ix := 0; ix < list.Size(); ix++ {
-		item, err := list.Get(ix)
-		if err != nil {
-			// This shouldn't ever happen, but parallelism could be crazy.
-			panic(err)
-		}
-
-		if list.converter.Equals(item, value) {
-			return ix
-		}
-	}
-	return -1
+	return listIndexOf[O](list, value, list.converter)
 }
 
 func (list *arrayList[O]) Get(ix int) (O, error) {

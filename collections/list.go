@@ -3,6 +3,7 @@ package collections
 import (
 	"bytes"
 	"fmt"
+	"sort"
 
 	"github.com/pasataleo/go-objects/objects"
 )
@@ -16,7 +17,7 @@ type List[O any] interface {
 
 	Insert(value O, ix int) error
 	Replace(value O, ix int) (O, error)
-	RemoveAt(ix int) error
+	RemoveAt(ix int) (O, error)
 }
 
 func listEquals[O any](target List[O], right any, converter objects.ObjectConverter[O]) bool {
@@ -80,4 +81,33 @@ func listIndexOf[O any](list List[O], value O, converter objects.ObjectConverter
 		ix++
 	}
 	return -1
+}
+
+func Sort[O objects.Comparable[O]](list List[O]) {
+	SortT(list, objects.ComparableComparator[O]())
+}
+
+func SortT[O any](list List[O], comparator objects.Comparator[O]) {
+	switch l := list.(type) {
+	case *linkedList[O]:
+		l.sort(comparator)
+		return
+	case *arrayList[O]:
+		l.sort(comparator)
+		return
+	}
+
+	sorted := make([]O, list.Size())
+	for iterator := list.Iterator(); iterator.HasNext(); {
+		sorted = append(sorted, iterator.Next())
+	}
+	sort.Slice(sorted, func(i, j int) bool {
+		return comparator.Compare(sorted[i], sorted[j]) < 0
+	})
+
+	for ix := 0; ix < list.Size(); ix++ {
+		if _, err := list.Replace(sorted[ix], ix); err != nil {
+			panic(err)
+		}
+	}
 }

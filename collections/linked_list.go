@@ -1,6 +1,8 @@
 package collections
 
 import (
+	"sort"
+
 	"github.com/pasataleo/go-errors/errors"
 	"github.com/pasataleo/go-objects/objects"
 )
@@ -19,6 +21,18 @@ type linkedListNode[O any] struct {
 	after  *linkedListNode[O]
 
 	value O
+}
+
+func NewLinkedListT[O any](converter objects.ObjectConverter[O]) List[O] {
+	return &arrayList[O]{
+		converter: converter,
+	}
+}
+
+func NewLinkedList[O objects.Object]() List[O] {
+	return &arrayList[O]{
+		converter: objects.ObjectIdentityConverter[O](),
+	}
 }
 
 // Object implementation
@@ -62,52 +76,32 @@ func (list *linkedList[O]) AddAll(values Collection[O]) error {
 }
 
 func (list *linkedList[O]) Remove(value O) error {
-	node := list.first
-	for node != nil {
-		if list.converter.Equals(node.value, value) {
-			list.size = list.size - 1
-
-			first := node.before != nil
-			last := node.after != nil
-
-			if first && last {
-				list.first = nil
-				list.last = nil
-				return nil
-			}
-
-			if first {
-				list.first = node.after
-				node.after.before = nil
-				return nil
-			}
-
-			if last {
-				list.last = node.before
-				node.before.after = nil
-				return nil
-			}
-
-			before := node.before
-			after := node.after
-
-			before.after = after
-			after.before = before
-			return nil
-		}
-
-		node = node.after
+	node := list.value(value)
+	if node == nil {
+		return errors.Embed(errors.New(nil, ErrorCodeNotFound, "not found"), value)
 	}
-
-	return errors.Embed(errors.New(nil, ErrorCodeNotFound, "not found"), value)
+	list.remove(node)
+	return nil
 }
 
 func (list *linkedList[O]) RemoveAll(values Collection[O]) error {
 	return collectionRemoveAll[O](list, values)
 }
 
+func (list *linkedList[O]) Copy() Collection[O] {
+	newList := NewLinkedListT[O](list.converter)
+	for iterator := list.Iterator(); iterator.HasNext(); {
+		_ = newList.Add(iterator.Next())
+	}
+	return newList
+}
+
 func (list *linkedList[O]) Size() int {
 	return list.size
+}
+
+func (list *linkedList[O]) IsEmpty() bool {
+	return list.Size() == 0
 }
 
 // List implementation
@@ -117,94 +111,42 @@ func (list *linkedList[O]) IndexOf(value O) int {
 }
 
 func (list *linkedList[O]) Get(ix int) (O, error) {
-	var null O
-	if ix < 0 || ix >= list.size {
+	node := list.index(ix)
+	if node == nil {
+		var null O
 		return null, errors.Newf(nil, ErrorCodeOutOfBounds, "index %d out of bounds", ix)
 	}
-
-	current := 0
-	for iterator := list.Iterator(); iterator.HasNext(); {
-		value := iterator.Next()
-		if current == ix {
-			return value, nil
-		}
-	}
-
-	return null, errors.Newf(nil, ErrorCodeOutOfBounds, "index %d out of bounds", ix)
+	return node.value, nil
 }
 
 func (list *linkedList[O]) Insert(value O, ix int) error {
-	if ix < 0 || ix > list.size {
+	if list.size == 0 {
+		if ix == 0 {
+			node := &linkedListNode[O]{
+				value: value,
+			}
+			list.first = node
+			list.last = node
+			list.size = 1
+			return nil
+		}
 		return errors.Newf(nil, ErrorCodeOutOfBounds, "index %d out of bounds", ix)
 	}
 
-	if list.size == 0 {
-		// Then this is empty, and we're adding the first item.
-		node := &linkedListNode[O]{
-			before: nil,
-			after:  nil,
-			value:  value,
-		}
-
-		list.last = node
-		list.first = node
-		list.size = 1
-		return nil
-	}
-
-	if ix == 0 {
-		// Then we are inserting at the beginning.
-		node := &linkedListNode[O]{
-			before: nil,
-			after:  list.first,
-			value:  value,
-		}
-
-		list.first.before = node
-		list.first = node
-		list.size = list.size + 1
-		return nil
-	}
-
-	if ix == list.size {
-		// Then we are inserting at the end.
-		node := &linkedListNode[O]{
-			before: list.last,
-			after:  nil,
-			value:  value,
-		}
-
-		list.last.after = node
-		list.last = node
-		list.size = list.size + 1
-		return nil
-	}
-
-	var current *linkedListNode[O]
-
-	half := list.size / 2
-	if ix < half {
-		// Start at the beginning and go forward.
-		current = list.first
-		currentIx := 0
-		for current != nil {
-			if currentIx == ix {
-				break
+	current := list.index(ix)
+	if current == nil {
+		if ix == list.size {
+			// Then we're inserting right at the end.
+			node := &linkedListNode[O]{
+				value:  value,
+				before: list.last,
 			}
-			current = current.after
-			currentIx = currentIx + 1
+			list.last.after = node
+			list.last = node
+			list.size = list.size + 1
+			return nil
 		}
-	} else {
-		// Start at the end and go backward.
-		current = list.last
-		currentIx := list.size - 1
-		for current != nil {
-			if currentIx == ix {
-				break
-			}
-			current = current.before
-			currentIx = currentIx - 1
-		}
+		return errors.Newf(nil, ErrorCodeOutOfBounds, "index %d out of bounds", ix)
 	}
 
 	node := &linkedListNode[O]{
@@ -213,43 +155,107 @@ func (list *linkedList[O]) Insert(value O, ix int) error {
 		value:  value,
 	}
 
+	if current.before == nil {
+		// Then this is the first node.
+		list.first = node
+	}
 	current.before = node
 	list.size = list.size + 1
 	return nil
 }
 
 func (list *linkedList[O]) Replace(value O, ix int) (O, error) {
-	if ix < 0 || ix >= list.size {
-		var obj O
-		return obj, errors.Newf(nil, ErrorCodeOutOfBounds, "index %d out of bounds", ix)
+	var previous O
+
+	node := list.index(ix)
+	if node == nil {
+		return previous, errors.Newf(nil, ErrorCodeOutOfBounds, "index %d out of bounds", ix)
 	}
 
-	half := list.size / 2
-	var current linkedListNode[O]
-	if ix < half {
-		count := 0
-		for current := list.first; current != nil; current = current.after {
-			if count == ix {
-			}
-		}
-	} else {
-		count := list.size - 1
-		for current := list.last; current != nil; current = current.before {
-			if count == ix {
-				previous := current.value
-				current.value = value
-				return previous, nil
-			}
-		}
-	}
-
-	previous := current.value
-	current.value = value
+	previous = node.value
+	node.value = value
 	return previous, nil
 }
 
-func (list *linkedList[O]) RemoveAt(ix int) error {
-	if ix < 0 || ix >= list.size {
-		return errors.Newf(nil, ErrorCodeOutOfBounds, "index %d out of bounds", ix)
+func (list *linkedList[O]) RemoveAt(ix int) (O, error) {
+	node := list.index(ix)
+	if node == nil {
+		var null O
+		return null, errors.Newf(nil, ErrorCodeOutOfBounds, "index %d out of bounds", ix)
+	}
+	list.remove(node)
+	return node.value, nil
+}
+
+// linked list
+
+func (list *linkedList[O]) remove(node *linkedListNode[O]) {
+	list.size = list.size - 1
+
+	if node.before == nil && node.after == nil {
+		// Then there's just a single item in the list, and we're removing it.
+		list.first = nil
+		list.last = nil
+		return
+	}
+
+	if node.before == nil {
+		// Then we have the first item in the list.
+		list.first = node.after
+		list.first.before = nil
+		return
+	}
+
+	if node.after == nil {
+		// Then we have the first item in the list.
+		list.last = node.before
+		list.last.after = nil
+		return
+	}
+
+	before := node.before
+	after := node.after
+	before.after = after
+	after.before = before
+}
+
+func (list *linkedList[O]) value(value O) *linkedListNode[O] {
+	for current := list.first; current != nil; current = current.after {
+		if list.converter.Equals(current.value, value) {
+			return current
+		}
+	}
+	return nil
+}
+
+func (list *linkedList[O]) index(ix int) *linkedListNode[O] {
+	mid := list.size / 2
+	if ix <= mid {
+		for current, currentIx := list.first, 0; current != nil; current, currentIx = current.after, currentIx+1 {
+			if currentIx == ix {
+				return current
+			}
+		}
+	} else {
+		for current, currentIx := list.last, list.size-1; current != nil; current, currentIx = current.before, currentIx-1 {
+			if currentIx == ix {
+				return current
+			}
+		}
+	}
+	return nil
+}
+
+func (list *linkedList[O]) sort(comparator objects.Comparator[O]) {
+	sorted := make([]O, list.size)
+	for iterator := list.Iterator(); iterator.HasNext(); {
+		sorted = append(sorted, iterator.Next())
+	}
+	sort.Slice(sorted, func(i, j int) bool {
+		return comparator.Compare(sorted[i], sorted[j]) < 0
+	})
+
+	for node, ix := list.first, 0; node != nil; ix++ {
+		node.value = sorted[ix]
 	}
 }

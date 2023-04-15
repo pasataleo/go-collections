@@ -1,6 +1,8 @@
 package collections
 
 import (
+	"sort"
+
 	"github.com/pasataleo/go-errors/errors"
 	"github.com/pasataleo/go-objects/objects"
 )
@@ -70,15 +72,28 @@ func (list *arrayList[O]) Remove(value O) error {
 	if ix < 0 {
 		return errors.Embed(errors.New(nil, ErrorCodeNotFound, "not found"), value)
 	}
-	return list.RemoveAt(ix)
+	_, err := list.RemoveAt(ix)
+	return err
 }
 
 func (list *arrayList[O]) RemoveAll(values Collection[O]) error {
 	return collectionRemoveAll[O](list, values)
 }
 
+func (list *arrayList[O]) Copy() Collection[O] {
+	newList := NewArrayListT[O](list.converter)
+	for iterator := list.Iterator(); iterator.HasNext(); {
+		_ = newList.Add(iterator.Next())
+	}
+	return newList
+}
+
 func (list *arrayList[O]) Size() int {
 	return len(list.values)
+}
+
+func (list *arrayList[O]) IsEmpty() bool {
+	return list.Size() == 0
 }
 
 // List implementation
@@ -122,11 +137,19 @@ func (list *arrayList[O]) Replace(value O, ix int) (O, error) {
 	return current, nil
 }
 
-func (list *arrayList[O]) RemoveAt(ix int) error {
+func (list *arrayList[O]) RemoveAt(ix int) (O, error) {
 	if ix < 0 || ix >= len(list.values) {
-		return errors.Newf(nil, ErrorCodeOutOfBounds, "index %d out of bounds", ix)
+		var null O
+		return null, errors.Newf(nil, ErrorCodeOutOfBounds, "index %d out of bounds", ix)
 	}
 
+	obj := list.values[ix]
 	list.values = append(list.values[:ix], list.values[ix+1:]...)
-	return nil
+	return obj, nil
+}
+
+func (list *arrayList[O]) sort(comparator objects.Comparator[O]) {
+	sort.Slice(list.values, func(i, j int) bool {
+		return comparator.Compare(list.values[i], list.values[j]) < 0
+	})
 }

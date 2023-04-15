@@ -16,36 +16,6 @@ type hashMap[K any, V any] struct {
 	valueConverter objects.ObjectConverter[V]
 }
 
-type hashMapIterator[K, V any] struct {
-	set *hashMap[K, V]
-
-	keys []uint64
-	keyI int
-
-	valueI int
-}
-
-func (iterator *hashMapIterator[K, V]) HasNext() bool {
-	return iterator.keyI < len(iterator.keys)
-}
-
-func (iterator *hashMapIterator[K, V]) Next() (MapEntry[K, V], error) {
-	if iterator.keyI < 0 || iterator.keyI >= len(iterator.keys) {
-		var obj MapEntry[K, V]
-		return obj, errors.New(nil, ErrorCodeOutOfBounds, "out of bounds")
-	}
-
-	currentSlice := iterator.set.values[iterator.keys[iterator.keyI]]
-
-	value := currentSlice[iterator.valueI]
-	iterator.valueI = iterator.valueI + 1
-	if iterator.valueI >= len(currentSlice) {
-		iterator.keyI = iterator.keyI + 1
-		iterator.valueI = 0
-	}
-	return value, nil
-}
-
 func NewHashMap[K objects.Object, V objects.Object]() Map[K, V] {
 	return NewHashMapKV[K, V](objects.ObjectIdentityConverter[K](), objects.ObjectIdentityConverter[V]())
 }
@@ -75,10 +45,7 @@ func (h *hashMap[K, V]) Equals(other any) bool {
 		}
 
 		for iterator := h.Iterator(); iterator.HasNext(); {
-			entry, err := iterator.Next()
-			if err != nil {
-				panic(err)
-			}
+			entry := iterator.Next()
 
 			if !h.ContainsKey(entry.GetKey()) {
 				return false
@@ -96,12 +63,8 @@ func (h *hashMap[K, V]) Equals(other any) bool {
 func (h *hashMap[K, V]) HashCode() uint64 {
 	hash := uint64(13001)
 	for iterator := h.Iterator(); iterator.HasNext(); {
-		value, err := iterator.Next()
-		if err != nil {
-			panic(err)
-		}
-
-		hash = hash * value.HashCode()
+		entry := iterator.Next()
+		hash = hash * entry.HashCode()
 	}
 	return hash
 }
@@ -112,15 +75,12 @@ func (h *hashMap[K, V]) ToString() string {
 
 	first := true
 	for iterator := h.Iterator(); iterator.HasNext(); {
-		value, err := iterator.Next()
-		if err != nil {
-			panic(err)
-		}
+		entry := iterator.Next()
 
 		if first {
-			buffer.WriteString(value.ToString())
+			buffer.WriteString(entry.ToString())
 		} else {
-			buffer.WriteString(fmt.Sprintf(",%s", value.ToString()))
+			buffer.WriteString(fmt.Sprintf(",%s", entry.ToString()))
 		}
 		first = false
 	}
@@ -150,20 +110,7 @@ func (h *hashMap[K, V]) Add(value MapEntry[K, V]) error {
 }
 
 func (h *hashMap[K, V]) AddAll(values Collection[MapEntry[K, V]]) error {
-	var multi error
-	for iterator := values.Iterator(); iterator.HasNext(); {
-		value, err := iterator.Next()
-		if err != nil {
-			// This shouldn't happen as we are checking HasNext first, but
-			// something weird could happen with threading.
-			panic(err)
-		}
-
-		if err := h.Add(value); err != nil {
-			multi = errors.Append(multi, err)
-		}
-	}
-	return multi
+	return collectionAddAll[MapEntry[K, V]](h, values)
 }
 
 func (h *hashMap[K, V]) Remove(value MapEntry[K, V]) error {
@@ -176,20 +123,7 @@ func (h *hashMap[K, V]) Remove(value MapEntry[K, V]) error {
 }
 
 func (h *hashMap[K, V]) RemoveAll(values Collection[MapEntry[K, V]]) error {
-	var multi error
-	for iterator := values.Iterator(); iterator.HasNext(); {
-		value, err := iterator.Next()
-		if err != nil {
-			// This shouldn't really happen unless someone is behaving badly
-			// with threads.
-			panic(err)
-		}
-
-		if err := h.Remove(value); err != nil {
-			multi = errors.Append(multi, err)
-		}
-	}
-	return multi
+	return collectionRemoveAll[MapEntry[K, V]](h, values)
 }
 
 func (h *hashMap[K, V]) Contains(value MapEntry[K, V]) bool {
@@ -202,23 +136,23 @@ func (h *hashMap[K, V]) Contains(value MapEntry[K, V]) bool {
 }
 
 func (h *hashMap[K, V]) ContainsAll(values Collection[MapEntry[K, V]]) bool {
-	for iterator := values.Iterator(); iterator.HasNext(); {
-		value, err := iterator.Next()
-		if err != nil {
-			// This shouldn't happen as we are checking HasNext first, but
-			// something weird could happen with threading.
-			panic(err)
-		}
+	return collectionContainsAll[MapEntry[K, V]](h, values)
+}
 
-		if !h.Contains(value) {
-			return false
-		}
+func (h *hashMap[K, V]) Copy() Collection[MapEntry[K, V]] {
+	newMap := NewHashMapKV(h.keyConverter, h.valueConverter)
+	for iterator := h.Iterator(); iterator.HasNext(); {
+		_ = newMap.Add(iterator.Next())
 	}
-	return true
+	return newMap
 }
 
 func (h *hashMap[K, V]) Size() int {
 	return h.size
+}
+
+func (h *hashMap[K, V]) IsEmpty() bool {
+	return h.Size() == 0
 }
 
 // Map implementation
@@ -370,11 +304,7 @@ func (h *hashMap[K, V]) GetSafe(key K) (V, error) {
 func (h *hashMap[K, V]) Keys() Collection[K] {
 	set := NewHashSetT[K](h.keyConverter)
 	for iterator := h.Iterator(); iterator.HasNext(); {
-		value, err := iterator.Next()
-		if err != nil {
-			panic(err)
-		}
-
+		value := iterator.Next()
 		if err := set.Add(value.GetKey()); err != nil {
 			panic(err)
 		}
@@ -385,11 +315,7 @@ func (h *hashMap[K, V]) Keys() Collection[K] {
 func (h *hashMap[K, V]) Values() Collection[V] {
 	list := NewArrayListT[V](h.valueConverter)
 	for iterator := h.Iterator(); iterator.HasNext(); {
-		value, err := iterator.Next()
-		if err != nil {
-			panic(err)
-		}
-
+		value := iterator.Next()
 		if err := list.Add(value.GetValue()); err != nil {
 			panic(err)
 		}

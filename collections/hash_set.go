@@ -36,12 +36,7 @@ func (set *hashSet[O]) Equals(other any) bool {
 		}
 
 		for iterator := set.Iterator(); iterator.HasNext(); {
-			value, err := iterator.Next()
-			if err != nil {
-				panic(err)
-			}
-
-			if !lSet.Contains(value) {
+			if !lSet.Contains(iterator.Next()) {
 				return false
 			}
 		}
@@ -53,12 +48,7 @@ func (set *hashSet[O]) Equals(other any) bool {
 func (set *hashSet[O]) HashCode() uint64 {
 	hash := uint64(13001)
 	for iterator := set.Iterator(); iterator.HasNext(); {
-		value, err := iterator.Next()
-		if err != nil {
-			panic(err)
-		}
-
-		hash = hash * set.converter.HashCode(value)
+		hash = hash * set.converter.HashCode(iterator.Next())
 	}
 	return hash
 }
@@ -69,11 +59,7 @@ func (set *hashSet[O]) ToString() string {
 
 	first := true
 	for iterator := set.Iterator(); iterator.HasNext(); {
-		value, err := iterator.Next()
-		if err != nil {
-			panic(err)
-		}
-
+		value := iterator.Next()
 		if first {
 			buffer.WriteString(set.converter.ToString(value))
 		} else {
@@ -151,6 +137,18 @@ func (set *hashSet[O]) RemoveAll(values Collection[O]) error {
 	return collectionRemoveAll[O](set, values)
 }
 
+func (set *hashSet[O]) Copy() Collection[O] {
+	newSet := NewHashSetT(set.converter)
+	for iterator := set.Iterator(); iterator.HasNext(); {
+		_ = newSet.Add(iterator.Next())
+	}
+	return newSet
+}
+
 func (set *hashSet[O]) Size() int {
 	return set.size
+}
+
+func (set *hashSet[O]) IsEmpty() bool {
+	return set.Size() == 0
 }

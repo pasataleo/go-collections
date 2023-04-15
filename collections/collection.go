@@ -16,21 +16,17 @@ type Collection[O any] interface {
 	RemoveAll(values Collection[O]) error
 
 	Contains(value O) bool
-	ContainsAll(value Collection[O]) bool
+	ContainsAll(values Collection[O]) bool
+
+	Copy() Collection[O]
 
 	Size() int
+	IsEmpty() bool
 }
 
 func collectionContainsAll[O any](collection Collection[O], target Collection[O]) bool {
 	for iterator := target.Iterator(); iterator.HasNext(); {
-		value, err := iterator.Next()
-		if err != nil {
-			// This shouldn't happen as we are checking HasNext first, but
-			// something weird could happen with threading.
-			panic(err)
-		}
-
-		if !collection.Contains(value) {
+		if !collection.Contains(iterator.Next()) {
 			return false
 		}
 	}
@@ -40,14 +36,7 @@ func collectionContainsAll[O any](collection Collection[O], target Collection[O]
 func collectionAddAll[O any](collection Collection[O], target Collection[O]) error {
 	var multi error
 	for iterator := target.Iterator(); iterator.HasNext(); {
-		value, err := iterator.Next()
-		if err != nil {
-			// This shouldn't happen as we are checking HasNext first, but
-			// something weird could happen with threading.
-			panic(err)
-		}
-
-		if err := collection.Add(value); err != nil {
+		if err := collection.Add(iterator.Next()); err != nil {
 			multi = errors.Append(multi, err)
 		}
 	}
@@ -57,14 +46,7 @@ func collectionAddAll[O any](collection Collection[O], target Collection[O]) err
 func collectionRemoveAll[O any](collection Collection[O], target Collection[O]) error {
 	var multi error
 	for iterator := target.Iterator(); iterator.HasNext(); {
-		value, err := iterator.Next()
-		if err != nil {
-			// This shouldn't really happen unless someone is behaving badly
-			// with threads.
-			panic(err)
-		}
-
-		if err := collection.Remove(value); err != nil {
+		if err := collection.Remove(iterator.Next()); err != nil {
 			multi = errors.Append(multi, err)
 		}
 	}

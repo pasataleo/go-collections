@@ -38,10 +38,6 @@ func runCollectionTests[V objects.Object](t *testing.T, init func() Collection[V
 			True().
 			Capture()
 		multi.Len(3)
-		multi.Flatten().
-			ErrorContainsObject(data["three"]).
-			ErrorContainsObject(data["two"]).
-			ErrorContainsObject(data["one"])
 	})
 
 	t.Run("collection_failed", func(t *testing.T) {

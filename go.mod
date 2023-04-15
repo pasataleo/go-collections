@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/pasataleo/go-errors v0.1.2
-	github.com/pasataleo/go-objects v0.1.1
+	github.com/pasataleo/go-objects v0.1.2
 	github.com/pasataleo/go-testing v0.1.2
 )
 

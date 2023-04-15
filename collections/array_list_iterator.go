@@ -1,19 +1,19 @@
 package collections
 
-type listIterator[O any] struct {
+type arrayListIterator[O any] struct {
 	current int
-	list    List[O]
+	list    *arrayList[O]
 }
 
-func (iterator *listIterator[O]) HasNext() bool {
+func (iterator *arrayListIterator[O]) HasNext() bool {
 	return iterator.current < iterator.list.Size()
 }
 
-func (iterator *listIterator[O]) Next() (O, error) {
+func (iterator *arrayListIterator[O]) Next() O {
 	item, err := iterator.list.Get(iterator.current)
 	if err != nil {
-		return item, err
+		panic(err)
 	}
 	iterator.current = iterator.current + 1
-	return item, nil
+	return item
 }

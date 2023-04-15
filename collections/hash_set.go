@@ -15,36 +15,6 @@ type hashSet[O any] struct {
 	converter objects.ObjectConverter[O]
 }
 
-type hashSetIterator[O any] struct {
-	set *hashSet[O]
-
-	keys []uint64
-	keyI int
-
-	valueI int
-}
-
-func (iterator *hashSetIterator[O]) HasNext() bool {
-	return iterator.keyI < len(iterator.keys)
-}
-
-func (iterator *hashSetIterator[O]) Next() (O, error) {
-	if iterator.keyI < 0 || iterator.keyI >= len(iterator.keys) {
-		var obj O
-		return obj, errors.New(nil, ErrorCodeOutOfBounds, "out of bounds")
-	}
-
-	currentSlice := iterator.set.values[iterator.keys[iterator.keyI]]
-
-	value := currentSlice[iterator.valueI]
-	iterator.valueI = iterator.valueI + 1
-	if iterator.valueI >= len(currentSlice) {
-		iterator.keyI = iterator.keyI + 1
-		iterator.valueI = 0
-	}
-	return value, nil
-}
-
 func NewHashSetT[O any](converter objects.ObjectConverter[O]) Set[O] {
 	return &hashSet[O]{
 		values:    make(map[uint64][]O),
@@ -66,12 +36,7 @@ func (set *hashSet[O]) Equals(other any) bool {
 		}
 
 		for iterator := set.Iterator(); iterator.HasNext(); {
-			value, err := iterator.Next()
-			if err != nil {
-				panic(err)
-			}
-
-			if !lSet.Contains(value) {
+			if !lSet.Contains(iterator.Next()) {
 				return false
 			}
 		}
@@ -83,12 +48,7 @@ func (set *hashSet[O]) Equals(other any) bool {
 func (set *hashSet[O]) HashCode() uint64 {
 	hash := uint64(13001)
 	for iterator := set.Iterator(); iterator.HasNext(); {
-		value, err := iterator.Next()
-		if err != nil {
-			panic(err)
-		}
-
-		hash = hash * set.converter.HashCode(value)
+		hash = hash * set.converter.HashCode(iterator.Next())
 	}
 	return hash
 }
@@ -99,11 +59,7 @@ func (set *hashSet[O]) ToString() string {
 
 	first := true
 	for iterator := set.Iterator(); iterator.HasNext(); {
-		value, err := iterator.Next()
-		if err != nil {
-			panic(err)
-		}
-
+		value := iterator.Next()
 		if first {
 			buffer.WriteString(set.converter.ToString(value))
 		} else {
@@ -143,19 +99,7 @@ func (set *hashSet[O]) Contains(value O) bool {
 }
 
 func (set *hashSet[O]) ContainsAll(values Collection[O]) bool {
-	for iterator := values.Iterator(); iterator.HasNext(); {
-		value, err := iterator.Next()
-		if err != nil {
-			// This shouldn't happen as we are checking HasNext first, but
-			// something weird could happen with threading.
-			panic(err)
-		}
-
-		if !set.Contains(value) {
-			return false
-		}
-	}
-	return true
+	return collectionContainsAll[O](set, values)
 }
 
 func (set *hashSet[O]) Add(value O) error {
@@ -173,20 +117,7 @@ func (set *hashSet[O]) Add(value O) error {
 }
 
 func (set *hashSet[O]) AddAll(values Collection[O]) error {
-	var multi error
-	for iterator := values.Iterator(); iterator.HasNext(); {
-		value, err := iterator.Next()
-		if err != nil {
-			// This shouldn't happen as we are checking HasNext first, but
-			// something weird could happen with threading.
-			panic(err)
-		}
-
-		if err := set.Add(value); err != nil {
-			multi = errors.Append(multi, err)
-		}
-	}
-	return multi
+	return collectionAddAll[O](set, values)
 }
 
 func (set *hashSet[O]) Remove(value O) error {
@@ -203,22 +134,21 @@ func (set *hashSet[O]) Remove(value O) error {
 }
 
 func (set *hashSet[O]) RemoveAll(values Collection[O]) error {
-	var multi error
-	for iterator := values.Iterator(); iterator.HasNext(); {
-		value, err := iterator.Next()
-		if err != nil {
-			// This shouldn't really happen unless someone is behaving badly
-			// with threads.
-			panic(err)
-		}
+	return collectionRemoveAll[O](set, values)
+}
 
-		if err := set.Remove(value); err != nil {
-			multi = errors.Append(multi, err)
-		}
+func (set *hashSet[O]) Copy() Collection[O] {
+	newSet := NewHashSetT(set.converter)
+	for iterator := set.Iterator(); iterator.HasNext(); {
+		_ = newSet.Add(iterator.Next())
 	}
-	return multi
+	return newSet
 }
 
 func (set *hashSet[O]) Size() int {
 	return set.size
+}
+
+func (set *hashSet[O]) IsEmpty() bool {
+	return set.Size() == 0
 }

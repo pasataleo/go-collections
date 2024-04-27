@@ -2,35 +2,26 @@ package collections
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 
 	"github.com/pasataleo/go-errors/errors"
 	"github.com/pasataleo/go-objects/objects"
 )
 
-type heap[O any] struct {
+type heap[O objects.Object] struct {
 	items []O
 
-	converter  objects.ObjectConverter[O]
 	comparator objects.Comparator[O]
 }
 
 func NewPriorityQueue[O objects.ComparableObject[O]]() Queue[O] {
-	return NewPriorityQueueT(objects.ObjectIdentityConverter[O](), objects.ComparableComparator[O]())
+	return NewPriorityQueueO[O](objects.ComparableComparator[O]())
 }
 
 func NewPriorityQueueO[O objects.Object](comparator objects.Comparator[O]) Queue[O] {
-	return NewPriorityQueueT(objects.ObjectIdentityConverter[O](), comparator)
-}
-
-func NewPriorityQueueC[O objects.Comparable[O]](converter objects.ObjectConverter[O]) Queue[O] {
-	return NewPriorityQueueT(converter, objects.ComparableComparator[O]())
-}
-
-func NewPriorityQueueT[O any](converter objects.ObjectConverter[O], comparator objects.Comparator[O]) Queue[O] {
 	return &heap[O]{
 		items:      nil,
-		converter:  converter,
 		comparator: comparator,
 	}
 }
@@ -38,14 +29,14 @@ func NewPriorityQueueT[O any](converter objects.ObjectConverter[O], comparator o
 // Object implementation
 
 func (h *heap[O]) Equals(other any) bool {
-	return queueEquals(h, other, h.converter)
+	return queueEquals[O](h, other)
 }
 
 func (h *heap[O]) HashCode() uint64 {
-	return queueHashCode[O](h, h.converter)
+	return queueHashCode[O](h)
 }
 
-func (h *heap[O]) ToString() string {
+func (h *heap[O]) String() string {
 	var buffer bytes.Buffer
 	buffer.WriteString("[")
 
@@ -53,9 +44,9 @@ func (h *heap[O]) ToString() string {
 	for iterator := h.Iterator(); iterator.HasNext(); {
 		value := iterator.Next()
 		if first {
-			buffer.WriteString(h.converter.ToString(value))
+			buffer.WriteString(value.String())
 		} else {
-			buffer.WriteString(fmt.Sprintf(",%s", h.converter.ToString(value)))
+			buffer.WriteString(fmt.Sprintf(",%s", value))
 		}
 		first = false
 	}
@@ -65,7 +56,7 @@ func (h *heap[O]) ToString() string {
 
 // Iterable implementation
 
-type heapIterator[O any] struct {
+type heapIterator[O objects.Object] struct {
 	safe *heap[O]
 }
 
@@ -87,6 +78,14 @@ func (h *heap[O]) Iterator() objects.Iterator[O] {
 	}
 }
 
+func (h *heap[O]) MarshalJSON() ([]byte, error) {
+	return json.Marshal(h.items)
+}
+
+func (h *heap[O]) UnmarshalJSON(bytes []byte) error {
+	return json.Unmarshal(bytes, &h.items)
+}
+
 // Collection implementation
 
 func (h *heap[O]) Add(value O) error {
@@ -99,7 +98,7 @@ func (h *heap[O]) AddAll(values Collection[O]) error {
 
 func (h *heap[O]) Remove(value O) error {
 	for ix, current := range h.items {
-		if h.converter.Equals(current, value) {
+		if current.Equals(value) {
 			_, err := h.remove(ix)
 			return err
 		}
@@ -113,7 +112,7 @@ func (h *heap[O]) RemoveAll(values Collection[O]) error {
 
 func (h *heap[O]) Contains(value O) bool {
 	for _, item := range h.items {
-		if h.converter.Equals(item, value) {
+		if item.Equals(value) {
 			return true
 		}
 	}
@@ -131,7 +130,6 @@ func (h *heap[O]) Copy() Collection[O] {
 	}
 	return &heap[O]{
 		items:      contents,
-		converter:  h.converter,
 		comparator: h.comparator,
 	}
 }
@@ -142,6 +140,10 @@ func (h *heap[O]) Size() int {
 
 func (h *heap[O]) IsEmpty() bool {
 	return len(h.items) == 0
+}
+
+func (h *heap[O]) Clear() {
+	h.items = nil
 }
 
 // Queue implementation

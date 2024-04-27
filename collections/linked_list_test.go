@@ -7,9 +7,9 @@ import (
 )
 
 func TestLinkedList_Collection(t *testing.T) {
-	runCollectionTests(t, func() Collection[objects.String] {
-		return NewArrayList[objects.String]()
-	}, map[string]objects.String{
+	runCollectionTests(t, func() Collection[*objects.String] {
+		return NewArrayList[*objects.String]()
+	}, map[string]*objects.String{
 		"one":   objects.WrapString("one"),
 		"two":   objects.WrapString("two"),
 		"three": objects.WrapString("three"),
@@ -17,9 +17,9 @@ func TestLinkedList_Collection(t *testing.T) {
 }
 
 func TestLinkedList_List(t *testing.T) {
-	runListTests(t, func() List[objects.String] {
-		return NewLinkedList[objects.String]()
-	}, map[string]objects.String{
+	runListTests(t, func() List[*objects.String] {
+		return NewLinkedList[*objects.String]()
+	}, map[string]*objects.String{
 		"zero":  objects.WrapString("zero"),
 		"one":   objects.WrapString("one"),
 		"two":   objects.WrapString("two"),

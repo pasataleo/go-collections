@@ -1,6 +1,8 @@
 package collections
 
-type hashSetIterator[O any] struct {
+import "github.com/pasataleo/go-objects/objects"
+
+type hashSetIterator[O objects.Object] struct {
 	set *hashSet[O]
 
 	keys []uint64

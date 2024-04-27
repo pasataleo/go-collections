@@ -7,7 +7,7 @@ import (
 	"github.com/pasataleo/go-testing/tests"
 )
 
-func runMapTests(t *testing.T, init func() Map[objects.String, objects.String], data map[string]objects.String) {
+func runMapTests(t *testing.T, init func() Map[*objects.String, *objects.String], data map[string]*objects.String) {
 	t.Run("map_put", func(t *testing.T) {
 		collection := init()
 

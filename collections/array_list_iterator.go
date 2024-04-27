@@ -1,6 +1,8 @@
 package collections
 
-type arrayListIterator[O any] struct {
+import "github.com/pasataleo/go-objects/objects"
+
+type arrayListIterator[O objects.Object] struct {
 	current int
 	list    *arrayList[O]
 }

@@ -2,37 +2,21 @@ package collections
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 
 	"github.com/pasataleo/go-errors/errors"
 	"github.com/pasataleo/go-objects/objects"
 )
 
-type hashMap[K any, V any] struct {
+type hashMap[K objects.Object, V objects.Object] struct {
 	values map[uint64][]MapEntry[K, V]
 	size   int
-
-	keyConverter   objects.ObjectConverter[K]
-	valueConverter objects.ObjectConverter[V]
 }
 
 func NewHashMap[K objects.Object, V objects.Object]() Map[K, V] {
-	return NewHashMapKV[K, V](objects.ObjectIdentityConverter[K](), objects.ObjectIdentityConverter[V]())
-}
-
-func NewHashMapK[K any, V objects.Object](keyConverter objects.ObjectConverter[K]) Map[K, V] {
-	return NewHashMapKV[K, V](keyConverter, objects.ObjectIdentityConverter[V]())
-}
-
-func NewHashMapV[K objects.Object, V any](valueConverter objects.ObjectConverter[V]) Map[K, V] {
-	return NewHashMapKV[K, V](objects.ObjectIdentityConverter[K](), valueConverter)
-}
-
-func NewHashMapKV[K any, V any](keyConverter objects.ObjectConverter[K], valueConverter objects.ObjectConverter[V]) Map[K, V] {
 	return &hashMap[K, V]{
-		values:         make(map[uint64][]MapEntry[K, V]),
-		keyConverter:   keyConverter,
-		valueConverter: valueConverter,
+		values: make(map[uint64][]MapEntry[K, V]),
 	}
 }
 
@@ -51,7 +35,7 @@ func (h *hashMap[K, V]) Equals(other any) bool {
 				return false
 			}
 
-			if !h.valueConverter.Equals(entry.GetValue(), h.Get(entry.GetKey())) {
+			if !entry.GetValue().Equals(h.Get(entry.GetKey())) {
 				return false
 			}
 		}
@@ -69,7 +53,7 @@ func (h *hashMap[K, V]) HashCode() uint64 {
 	return hash
 }
 
-func (h *hashMap[K, V]) ToString() string {
+func (h *hashMap[K, V]) String() string {
 	var buffer bytes.Buffer
 	buffer.WriteString("{")
 
@@ -78,14 +62,37 @@ func (h *hashMap[K, V]) ToString() string {
 		entry := iterator.Next()
 
 		if first {
-			buffer.WriteString(entry.ToString())
+			buffer.WriteString(entry.String())
 		} else {
-			buffer.WriteString(fmt.Sprintf(",%s", entry.ToString()))
+			buffer.WriteString(fmt.Sprintf(",%s", entry))
 		}
 		first = false
 	}
 	buffer.WriteString("}")
 	return buffer.String()
+}
+
+func (h *hashMap[K, V]) MarshalJSON() ([]byte, error) {
+	var entries []MapEntry[K, V]
+	for iterator := h.Iterator(); iterator.HasNext(); {
+		entries = append(entries, iterator.Next())
+	}
+	return json.Marshal(entries)
+}
+
+func (h *hashMap[K, V]) UnmarshalJSON(bytes []byte) error {
+	var entries []MapEntry[K, V]
+	if err := json.Unmarshal(bytes, &entries); err != nil {
+		return err
+	}
+
+	h.Clear()
+	for _, entry := range entries {
+		if err := h.Put(entry.GetKey(), entry.GetValue()); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Iterable implementation
@@ -132,7 +139,7 @@ func (h *hashMap[K, V]) Contains(value MapEntry[K, V]) bool {
 	}
 
 	contained := h.Get(value.GetKey())
-	return h.valueConverter.Equals(value.GetValue(), contained)
+	return value.GetValue().Equals(contained)
 }
 
 func (h *hashMap[K, V]) ContainsAll(values Collection[MapEntry[K, V]]) bool {
@@ -140,7 +147,7 @@ func (h *hashMap[K, V]) ContainsAll(values Collection[MapEntry[K, V]]) bool {
 }
 
 func (h *hashMap[K, V]) Copy() Collection[MapEntry[K, V]] {
-	newMap := NewHashMapKV(h.keyConverter, h.valueConverter)
+	newMap := NewHashMap[K, V]()
 	for iterator := h.Iterator(); iterator.HasNext(); {
 		_ = newMap.Add(iterator.Next())
 	}
@@ -155,14 +162,19 @@ func (h *hashMap[K, V]) IsEmpty() bool {
 	return h.Size() == 0
 }
 
+func (h *hashMap[K, V]) Clear() {
+	h.values = make(map[uint64][]MapEntry[K, V])
+	h.size = 0
+}
+
 // Map implementation
 
 func (h *hashMap[K, V]) ContainsKey(key K) bool {
-	hash := h.keyConverter.HashCode(key)
+	hash := key.HashCode()
 
 	values := h.values[hash]
 	for _, entry := range values {
-		if h.keyConverter.Equals(key, entry.GetKey()) {
+		if key.Equals(entry.GetKey()) {
 			return true
 		}
 	}
@@ -170,18 +182,16 @@ func (h *hashMap[K, V]) ContainsKey(key K) bool {
 }
 
 func (h *hashMap[K, V]) Put(key K, value V) error {
-	hash := h.keyConverter.HashCode(key)
+	hash := key.HashCode()
 
-	newEntry := mapEntry[K, V]{
-		key:            key,
-		value:          value,
-		keyConverter:   h.keyConverter,
-		valueConverter: h.valueConverter,
+	newEntry := &mapEntry[K, V]{
+		Key:   key,
+		Value: value,
 	}
 
 	values := h.values[hash]
 	for _, entry := range values {
-		if h.keyConverter.Equals(key, entry.GetKey()) {
+		if key.Equals(entry.GetKey()) {
 			return errors.Embed(errors.New(nil, ErrorCodeAlreadyExists, "already exists"), key)
 		}
 	}
@@ -192,18 +202,16 @@ func (h *hashMap[K, V]) Put(key K, value V) error {
 }
 
 func (h *hashMap[K, V]) Replace(key K, value V) (V, error) {
-	hash := h.keyConverter.HashCode(key)
+	hash := key.HashCode()
 
-	newEntry := mapEntry[K, V]{
-		key:            key,
-		value:          value,
-		keyConverter:   h.keyConverter,
-		valueConverter: h.valueConverter,
+	newEntry := &mapEntry[K, V]{
+		Key:   key,
+		Value: value,
 	}
 
 	values := h.values[hash]
 	for ix, entry := range values {
-		if h.keyConverter.Equals(key, entry.GetKey()) {
+		if key.Equals(entry.GetKey()) {
 			oldValue := entry.GetValue()
 			values[ix] = newEntry
 			h.values[hash] = values
@@ -216,18 +224,16 @@ func (h *hashMap[K, V]) Replace(key K, value V) (V, error) {
 }
 
 func (h *hashMap[K, V]) PutOrReplace(key K, value V) (V, bool) {
-	hash := h.keyConverter.HashCode(key)
+	hash := key.HashCode()
 
-	newEntry := mapEntry[K, V]{
-		key:            key,
-		value:          value,
-		keyConverter:   h.keyConverter,
-		valueConverter: h.valueConverter,
+	newEntry := &mapEntry[K, V]{
+		Key:   key,
+		Value: value,
 	}
 
 	values := h.values[hash]
 	for ix, entry := range values {
-		if h.keyConverter.Equals(key, entry.GetKey()) {
+		if key.Equals(key) {
 			oldValue := entry.GetValue()
 			values[ix] = newEntry
 			h.values[hash] = values
@@ -242,11 +248,11 @@ func (h *hashMap[K, V]) PutOrReplace(key K, value V) (V, bool) {
 }
 
 func (h *hashMap[K, V]) Delete(key K) (V, error) {
-	hash := h.keyConverter.HashCode(key)
+	hash := key.HashCode()
 
 	values := h.values[hash]
 	for ix, entry := range values {
-		if h.keyConverter.Equals(key, entry.GetKey()) {
+		if key.Equals(entry.GetKey()) {
 			newValues := append(values[:ix], values[ix+1:]...)
 			h.values[hash] = newValues
 			h.size = h.size - 1
@@ -259,11 +265,11 @@ func (h *hashMap[K, V]) Delete(key K) (V, error) {
 }
 
 func (h *hashMap[K, V]) DeleteIfPresent(key K) (V, bool) {
-	hash := h.keyConverter.HashCode(key)
+	hash := key.HashCode()
 
 	values := h.values[hash]
 	for ix, entry := range values {
-		if h.keyConverter.Equals(key, entry.GetKey()) {
+		if key.Equals(entry.GetKey()) {
 			newValues := append(values[:ix], values[ix+1:]...)
 			h.values[hash] = newValues
 			h.size = h.size - 1
@@ -276,11 +282,11 @@ func (h *hashMap[K, V]) DeleteIfPresent(key K) (V, bool) {
 }
 
 func (h *hashMap[K, V]) Get(key K) V {
-	hash := h.keyConverter.HashCode(key)
+	hash := key.HashCode()
 
 	values := h.values[hash]
 	for _, entry := range values {
-		if h.keyConverter.Equals(key, entry.GetKey()) {
+		if key.Equals(entry.GetKey()) {
 			return entry.GetValue()
 		}
 	}
@@ -288,11 +294,11 @@ func (h *hashMap[K, V]) Get(key K) V {
 }
 
 func (h *hashMap[K, V]) GetSafe(key K) (V, error) {
-	hash := h.keyConverter.HashCode(key)
+	hash := key.HashCode()
 
 	values := h.values[hash]
 	for _, entry := range values {
-		if h.keyConverter.Equals(key, entry.GetKey()) {
+		if key.Equals(entry.GetKey()) {
 			return entry.GetValue(), nil
 		}
 	}
@@ -302,7 +308,7 @@ func (h *hashMap[K, V]) GetSafe(key K) (V, error) {
 }
 
 func (h *hashMap[K, V]) Keys() Collection[K] {
-	set := NewHashSetT[K](h.keyConverter)
+	set := NewHashSet[K]()
 	for iterator := h.Iterator(); iterator.HasNext(); {
 		value := iterator.Next()
 		if err := set.Add(value.GetKey()); err != nil {
@@ -313,7 +319,7 @@ func (h *hashMap[K, V]) Keys() Collection[K] {
 }
 
 func (h *hashMap[K, V]) Values() Collection[V] {
-	list := NewArrayListT[V](h.valueConverter)
+	list := NewArrayList[V]()
 	for iterator := h.Iterator(); iterator.HasNext(); {
 		value := iterator.Next()
 		if err := list.Add(value.GetValue()); err != nil {

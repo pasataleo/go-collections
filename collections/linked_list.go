@@ -1,52 +1,65 @@
 package collections
 
 import (
+	"encoding/json"
 	"sort"
 
 	"github.com/pasataleo/go-errors/errors"
 	"github.com/pasataleo/go-objects/objects"
 )
 
-type linkedList[O any] struct {
+type linkedList[O objects.Object] struct {
 	first *linkedListNode[O]
 	last  *linkedListNode[O]
 
 	size int
-
-	converter objects.ObjectConverter[O]
 }
 
-type linkedListNode[O any] struct {
+type linkedListNode[O objects.Object] struct {
 	before *linkedListNode[O]
 	after  *linkedListNode[O]
 
 	value O
 }
 
-func NewLinkedListT[O any](converter objects.ObjectConverter[O]) List[O] {
-	return &arrayList[O]{
-		converter: converter,
-	}
-}
-
 func NewLinkedList[O objects.Object]() List[O] {
-	return &arrayList[O]{
-		converter: objects.ObjectIdentityConverter[O](),
-	}
+	return &linkedList[O]{}
 }
 
 // Object implementation
 
 func (list *linkedList[O]) Equals(other any) bool {
-	return listEquals[O](list, other, list.converter)
+	return listEquals[O](list, other)
 }
 
 func (list *linkedList[O]) HashCode() uint64 {
-	return listHashCode[O](list, list.converter)
+	return listHashCode[O](list)
 }
 
-func (list *linkedList[O]) ToString() string {
-	return listString[O](list, list.converter)
+func (list *linkedList[O]) String() string {
+	return listString[O](list)
+}
+
+func (list *linkedList[O]) MarshalJSON() ([]byte, error) {
+	var values []O
+	for iterator := list.Iterator(); iterator.HasNext(); {
+		values = append(values, iterator.Next())
+	}
+	return json.Marshal(values)
+}
+
+func (list *linkedList[O]) UnmarshalJSON(bytes []byte) error {
+	var values []O
+	if err := json.Unmarshal(bytes, &values); err != nil {
+		return err
+	}
+	list.Clear()
+	for _, value := range values {
+		if err := list.Add(value); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Iterable implementation
@@ -89,7 +102,7 @@ func (list *linkedList[O]) RemoveAll(values Collection[O]) error {
 }
 
 func (list *linkedList[O]) Copy() Collection[O] {
-	newList := NewLinkedListT[O](list.converter)
+	newList := NewLinkedList[O]()
 	for iterator := list.Iterator(); iterator.HasNext(); {
 		_ = newList.Add(iterator.Next())
 	}
@@ -104,10 +117,16 @@ func (list *linkedList[O]) IsEmpty() bool {
 	return list.Size() == 0
 }
 
+func (list *linkedList[O]) Clear() {
+	list.first = nil
+	list.last = nil
+	list.size = 0
+}
+
 // List implementation
 
 func (list *linkedList[O]) IndexOf(value O) int {
-	return listIndexOf[O](list, value, list.converter)
+	return listIndexOf[O](list, value)
 }
 
 func (list *linkedList[O]) Get(ix int) (O, error) {
@@ -221,7 +240,7 @@ func (list *linkedList[O]) remove(node *linkedListNode[O]) {
 
 func (list *linkedList[O]) value(value O) *linkedListNode[O] {
 	for current := list.first; current != nil; current = current.after {
-		if list.converter.Equals(current.value, value) {
+		if current.value.Equals(value) {
 			return current
 		}
 	}

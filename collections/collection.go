@@ -5,7 +5,7 @@ import (
 	"github.com/pasataleo/go-objects/objects"
 )
 
-type Collection[O any] interface {
+type Collection[O objects.Object] interface {
 	objects.Object
 	objects.Iterable[O]
 
@@ -22,9 +22,11 @@ type Collection[O any] interface {
 
 	Size() int
 	IsEmpty() bool
+
+	Clear()
 }
 
-func collectionContainsAll[O any](collection Collection[O], target Collection[O]) bool {
+func collectionContainsAll[O objects.Object](collection Collection[O], target Collection[O]) bool {
 	for iterator := target.Iterator(); iterator.HasNext(); {
 		if !collection.Contains(iterator.Next()) {
 			return false
@@ -33,7 +35,7 @@ func collectionContainsAll[O any](collection Collection[O], target Collection[O]
 	return true
 }
 
-func collectionAddAll[O any](collection Collection[O], target Collection[O]) error {
+func collectionAddAll[O objects.Object](collection Collection[O], target Collection[O]) error {
 	var multi error
 	for iterator := target.Iterator(); iterator.HasNext(); {
 		if err := collection.Add(iterator.Next()); err != nil {
@@ -43,7 +45,7 @@ func collectionAddAll[O any](collection Collection[O], target Collection[O]) err
 	return multi
 }
 
-func collectionRemoveAll[O any](collection Collection[O], target Collection[O]) error {
+func collectionRemoveAll[O objects.Object](collection Collection[O], target Collection[O]) error {
 	var multi error
 	for iterator := target.Iterator(); iterator.HasNext(); {
 		if err := collection.Remove(iterator.Next()); err != nil {

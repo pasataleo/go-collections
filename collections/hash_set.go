@@ -2,29 +2,23 @@ package collections
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 
 	"github.com/pasataleo/go-errors/errors"
 	"github.com/pasataleo/go-objects/objects"
 )
 
-type hashSet[O any] struct {
+type hashSet[O objects.Object] struct {
 	values map[uint64][]O
 	size   int
-
-	converter objects.ObjectConverter[O]
-}
-
-func NewHashSetT[O any](converter objects.ObjectConverter[O]) Set[O] {
-	return &hashSet[O]{
-		values:    make(map[uint64][]O),
-		size:      0,
-		converter: converter,
-	}
 }
 
 func NewHashSet[O objects.Object]() Set[O] {
-	return NewHashSetT[O](objects.ObjectIdentityConverter[O]())
+	return &hashSet[O]{
+		values: make(map[uint64][]O),
+		size:   0,
+	}
 }
 
 // Object implementation
@@ -48,12 +42,12 @@ func (set *hashSet[O]) Equals(other any) bool {
 func (set *hashSet[O]) HashCode() uint64 {
 	hash := uint64(13001)
 	for iterator := set.Iterator(); iterator.HasNext(); {
-		hash = hash * set.converter.HashCode(iterator.Next())
+		hash = hash * iterator.Next().HashCode()
 	}
 	return hash
 }
 
-func (set *hashSet[O]) ToString() string {
+func (set *hashSet[O]) String() string {
 	var buffer bytes.Buffer
 	buffer.WriteString("[")
 
@@ -61,14 +55,37 @@ func (set *hashSet[O]) ToString() string {
 	for iterator := set.Iterator(); iterator.HasNext(); {
 		value := iterator.Next()
 		if first {
-			buffer.WriteString(set.converter.ToString(value))
+			buffer.WriteString(value.String())
 		} else {
-			buffer.WriteString(fmt.Sprintf(",%s", set.converter.ToString(value)))
+			buffer.WriteString(fmt.Sprintf(",%s", value))
 		}
 		first = false
 	}
 	buffer.WriteString("]")
 	return buffer.String()
+}
+
+func (set *hashSet[O]) MarshalJSON() ([]byte, error) {
+	var values []O
+	for iterator := set.Iterator(); iterator.HasNext(); {
+		values = append(values, iterator.Next())
+	}
+	return json.Marshal(values)
+}
+
+func (set *hashSet[O]) UnmarshalJSON(bytes []byte) error {
+	var values []O
+	if err := json.Unmarshal(bytes, &values); err != nil {
+		return err
+	}
+
+	set.Clear()
+	for _, value := range values {
+		if err := set.Add(value); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Iterable implementation
@@ -89,9 +106,9 @@ func (set *hashSet[O]) Iterator() objects.Iterator[O] {
 // Collection implementation
 
 func (set *hashSet[O]) Contains(value O) bool {
-	hash := set.converter.HashCode(value)
+	hash := value.HashCode()
 	for _, contained := range set.values[hash] {
-		if set.converter.Equals(contained, value) {
+		if contained.Equals(value) {
 			return true
 		}
 	}
@@ -103,10 +120,10 @@ func (set *hashSet[O]) ContainsAll(values Collection[O]) bool {
 }
 
 func (set *hashSet[O]) Add(value O) error {
-	hash := set.converter.HashCode(value)
+	hash := value.HashCode()
 	values := set.values[hash]
 	for _, contained := range values {
-		if set.converter.Equals(value, contained) {
+		if value.Equals(contained) {
 			return errors.Embed(errors.New(nil, ErrorCodeAlreadyExists, "already exists"), value)
 		}
 	}
@@ -121,10 +138,10 @@ func (set *hashSet[O]) AddAll(values Collection[O]) error {
 }
 
 func (set *hashSet[O]) Remove(value O) error {
-	hash := set.converter.HashCode(value)
+	hash := value.HashCode()
 	values := set.values[hash]
 	for ix, contained := range values {
-		if set.converter.Equals(value, contained) {
+		if value.Equals(contained) {
 			set.values[hash] = append(values[:ix], values[ix+1:]...)
 			set.size = set.size - 1
 			return nil
@@ -138,7 +155,7 @@ func (set *hashSet[O]) RemoveAll(values Collection[O]) error {
 }
 
 func (set *hashSet[O]) Copy() Collection[O] {
-	newSet := NewHashSetT(set.converter)
+	newSet := NewHashSet[O]()
 	for iterator := set.Iterator(); iterator.HasNext(); {
 		_ = newSet.Add(iterator.Next())
 	}
@@ -151,4 +168,9 @@ func (set *hashSet[O]) Size() int {
 
 func (set *hashSet[O]) IsEmpty() bool {
 	return set.Size() == 0
+}
+
+func (set *hashSet[O]) Clear() {
+	set.values = make(map[uint64][]O)
+	set.size = 0
 }

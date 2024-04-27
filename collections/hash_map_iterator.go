@@ -1,6 +1,8 @@
 package collections
 
-type hashMapIterator[K, V any] struct {
+import "github.com/pasataleo/go-objects/objects"
+
+type hashMapIterator[K, V objects.Object] struct {
 	set *hashMap[K, V]
 
 	keys []uint64

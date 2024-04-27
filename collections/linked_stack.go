@@ -2,28 +2,16 @@ package collections
 
 import "github.com/pasataleo/go-objects/objects"
 
-type linkedStack[O any] struct {
+type linkedStack[O objects.Object] struct {
 	list *linkedList[O]
 }
 
 func NewStack[O objects.Object]() Stack[O] {
 	return &linkedStack[O]{
 		list: &linkedList[O]{
-			first:     nil,
-			last:      nil,
-			size:      0,
-			converter: objects.ObjectIdentityConverter[O](),
-		},
-	}
-}
-
-func NewStackT[O any](converter objects.ObjectConverter[O]) Stack[O] {
-	return &linkedStack[O]{
-		list: &linkedList[O]{
-			first:     nil,
-			last:      nil,
-			size:      0,
-			converter: converter,
+			first: nil,
+			last:  nil,
+			size:  0,
 		},
 	}
 }
@@ -41,8 +29,16 @@ func (s *linkedStack[O]) HashCode() uint64 {
 	return s.list.HashCode() * 13997
 }
 
-func (s *linkedStack[O]) ToString() string {
-	return s.list.ToString()
+func (s *linkedStack[O]) String() string {
+	return s.list.String()
+}
+
+func (s *linkedStack[O]) MarshalJSON() ([]byte, error) {
+	return s.list.MarshalJSON()
+}
+
+func (s *linkedStack[O]) UnmarshalJSON(bytes []byte) error {
+	return s.list.UnmarshalJSON(bytes)
 }
 
 // Iterable implementation
@@ -89,6 +85,10 @@ func (s *linkedStack[O]) Size() int {
 
 func (s *linkedStack[O]) IsEmpty() bool {
 	return s.list.Size() == 0
+}
+
+func (s *linkedStack[O]) Clear() {
+	s.list.Clear()
 }
 
 // Stack implementation

@@ -8,9 +8,9 @@ import (
 )
 
 func TestHeap_Collection(t *testing.T) {
-	runCollectionTests(t, func() Collection[objects.String] {
-		return NewPriorityQueue[objects.String]()
-	}, map[string]objects.String{
+	runCollectionTests(t, func() Collection[*objects.String] {
+		return NewPriorityQueue[*objects.String]()
+	}, map[string]*objects.String{
 		"one":   objects.WrapString("one"),
 		"two":   objects.WrapString("two"),
 		"three": objects.WrapString("three"),
@@ -18,7 +18,7 @@ func TestHeap_Collection(t *testing.T) {
 }
 
 func TestHeap(t *testing.T) {
-	heap := NewPriorityQueue[objects.String]()
+	heap := NewPriorityQueue[*objects.String]()
 
 	tests.ExecFn(t, heap.Offer, objects.WrapString("a")).NoError()
 	tests.ExecFn(t, heap.Offer, objects.WrapString("c")).NoError()

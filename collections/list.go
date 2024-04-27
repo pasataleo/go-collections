@@ -8,7 +8,7 @@ import (
 	"github.com/pasataleo/go-objects/objects"
 )
 
-type List[O any] interface {
+type List[O objects.Object] interface {
 	Collection[O]
 
 	IndexOf(value O) int
@@ -20,7 +20,7 @@ type List[O any] interface {
 	RemoveAt(ix int) (O, error)
 }
 
-func listEquals[O any](target List[O], right any, converter objects.ObjectConverter[O]) bool {
+func listEquals[O objects.Object](target List[O], right any) bool {
 	other, ok := right.(List[O])
 	if !ok {
 		return false
@@ -32,26 +32,26 @@ func listEquals[O any](target List[O], right any, converter objects.ObjectConver
 
 	var l, r objects.Iterator[O]
 	for l, r = target.Iterator(), other.Iterator(); l.HasNext() && r.HasNext(); {
-		if !converter.Equals(l.Next(), r.Next()) {
+		if !l.Next().Equals(r.Next()) {
 			return false
 		}
 	}
 	return true
 }
 
-func listHashCode[O any](list List[O], converter objects.ObjectConverter[O]) uint64 {
+func listHashCode[O objects.Object](list List[O]) uint64 {
 	hash := uint64(13001)
 	for ix := 0; ix < list.Size(); ix++ {
 		value, err := list.Get(ix)
 		if err != nil {
 			panic(err)
 		}
-		hash = hash * converter.HashCode(value)
+		hash = hash * value.HashCode()
 	}
 	return hash
 }
 
-func listString[O any](list List[O], converter objects.ObjectConverter[O]) string {
+func listString[O objects.Object](list List[O]) string {
 	var buffer bytes.Buffer
 	buffer.WriteString("[")
 	for ix := 0; ix < list.Size(); ix++ {
@@ -63,19 +63,19 @@ func listString[O any](list List[O], converter objects.ObjectConverter[O]) strin
 		}
 
 		if ix == 0 {
-			buffer.WriteString(converter.ToString(value))
+			buffer.WriteString(value.String())
 		} else {
-			buffer.WriteString(fmt.Sprintf(",%s", converter.ToString(value)))
+			buffer.WriteString(fmt.Sprintf(",%s", value))
 		}
 	}
 	buffer.WriteString("]")
 	return buffer.String()
 }
 
-func listIndexOf[O any](list List[O], value O, converter objects.ObjectConverter[O]) int {
+func listIndexOf[O objects.Object](list List[O], value O) int {
 	ix := 0
 	for iterator := list.Iterator(); iterator.HasNext(); {
-		if converter.Equals(iterator.Next(), value) {
+		if iterator.Next().Equals(value) {
 			return ix
 		}
 		ix++
@@ -83,11 +83,11 @@ func listIndexOf[O any](list List[O], value O, converter objects.ObjectConverter
 	return -1
 }
 
-func Sort[O objects.Comparable[O]](list List[O]) {
+func Sort[O objects.ComparableObject[O]](list List[O]) {
 	SortT(list, objects.ComparableComparator[O]())
 }
 
-func SortT[O any](list List[O], comparator objects.Comparator[O]) {
+func SortT[O objects.Object](list List[O], comparator objects.Comparator[O]) {
 	switch l := list.(type) {
 	case *linkedList[O]:
 		l.sort(comparator)

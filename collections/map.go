@@ -1,19 +1,20 @@
 package collections
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/pasataleo/go-objects/objects"
 )
 
-type MapEntry[K, V any] interface {
+type MapEntry[K, V objects.Object] interface {
 	objects.Object
 
 	GetKey() K
 	GetValue() V
 }
 
-type Map[K, V any] interface {
+type Map[K, V objects.Object] interface {
 	Collection[MapEntry[K, V]]
 
 	ContainsKey(key K) bool
@@ -32,33 +33,38 @@ type Map[K, V any] interface {
 	Values() Collection[V]
 }
 
-type mapEntry[K, V any] struct {
-	key   K
-	value V
-
-	keyConverter   objects.ObjectConverter[K]
-	valueConverter objects.ObjectConverter[V]
+type mapEntry[K, V objects.Object] struct {
+	Key   K `json:"key"`
+	Value V `json:"value"`
 }
 
-func (m mapEntry[K, V]) Equals(other any) bool {
+func (m *mapEntry[K, V]) MarshalJSON() ([]byte, error) {
+	return json.Marshal(m)
+}
+
+func (m *mapEntry[K, V]) UnmarshalJSON(bytes []byte) error {
+	return json.Unmarshal(bytes, m)
+}
+
+func (m *mapEntry[K, V]) Equals(other any) bool {
 	if mOther, ok := other.(MapEntry[K, V]); ok {
-		return m.keyConverter.Equals(m.key, mOther.GetKey()) && m.valueConverter.Equals(m.value, mOther.GetValue())
+		return m.Key.Equals(mOther.GetKey()) && m.Value.Equals(mOther.GetValue())
 	}
 	return false
 }
 
-func (m mapEntry[K, V]) HashCode() uint64 {
-	return 37 * m.keyConverter.HashCode(m.key) * m.valueConverter.HashCode(m.value)
+func (m *mapEntry[K, V]) HashCode() uint64 {
+	return 37 * m.Key.HashCode() * m.Value.HashCode()
 }
 
-func (m mapEntry[K, V]) ToString() string {
-	return fmt.Sprintf("%s:%s", m.keyConverter.ToString(m.key), m.valueConverter.ToString(m.value))
+func (m *mapEntry[K, V]) String() string {
+	return fmt.Sprintf("%s:%s", m.Key, m.Value)
 }
 
-func (m mapEntry[K, V]) GetKey() K {
-	return m.key
+func (m *mapEntry[K, V]) GetKey() K {
+	return m.Key
 }
 
-func (m mapEntry[K, V]) GetValue() V {
-	return m.value
+func (m *mapEntry[K, V]) GetValue() V {
+	return m.Value
 }

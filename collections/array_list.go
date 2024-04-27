@@ -1,42 +1,41 @@
 package collections
 
 import (
+	"encoding/json"
 	"sort"
 
 	"github.com/pasataleo/go-errors/errors"
 	"github.com/pasataleo/go-objects/objects"
 )
 
-type arrayList[O any] struct {
+type arrayList[O objects.Object] struct {
 	values []O
-
-	converter objects.ObjectConverter[O]
-}
-
-func NewArrayListT[O any](converter objects.ObjectConverter[O]) List[O] {
-	return &arrayList[O]{
-		converter: converter,
-	}
 }
 
 func NewArrayList[O objects.Object]() List[O] {
-	return &arrayList[O]{
-		converter: objects.ObjectIdentityConverter[O](),
-	}
+	return &arrayList[O]{}
 }
 
 // Object implementation
 
 func (list *arrayList[O]) Equals(other any) bool {
-	return listEquals[O](list, other, list.converter)
+	return listEquals[O](list, other)
 }
 
 func (list *arrayList[O]) HashCode() uint64 {
-	return listHashCode[O](list, list.converter)
+	return listHashCode[O](list)
 }
 
-func (list *arrayList[O]) ToString() string {
-	return listString[O](list, list.converter)
+func (list *arrayList[O]) String() string {
+	return listString[O](list)
+}
+
+func (list *arrayList[O]) MarshalJSON() ([]byte, error) {
+	return json.Marshal(list.values)
+}
+
+func (list *arrayList[O]) UnmarshalJSON(bytes []byte) error {
+	return json.Unmarshal(bytes, &list.values)
 }
 
 // Iterable implementation
@@ -81,7 +80,7 @@ func (list *arrayList[O]) RemoveAll(values Collection[O]) error {
 }
 
 func (list *arrayList[O]) Copy() Collection[O] {
-	newList := NewArrayListT[O](list.converter)
+	newList := NewArrayList[O]()
 	for iterator := list.Iterator(); iterator.HasNext(); {
 		_ = newList.Add(iterator.Next())
 	}
@@ -96,10 +95,14 @@ func (list *arrayList[O]) IsEmpty() bool {
 	return list.Size() == 0
 }
 
+func (list *arrayList[O]) Clear() {
+	list.values = nil
+}
+
 // List implementation
 
 func (list *arrayList[O]) IndexOf(value O) int {
-	return listIndexOf[O](list, value, list.converter)
+	return listIndexOf[O](list, value)
 }
 
 func (list *arrayList[O]) Get(ix int) (O, error) {

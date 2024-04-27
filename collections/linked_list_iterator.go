@@ -1,6 +1,8 @@
 package collections
 
-type linkedListIterator[O any] struct {
+import "github.com/pasataleo/go-objects/objects"
+
+type linkedListIterator[O objects.Object] struct {
 	current *linkedListNode[O]
 }
 

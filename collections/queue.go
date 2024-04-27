@@ -2,7 +2,7 @@ package collections
 
 import "github.com/pasataleo/go-objects/objects"
 
-type Queue[O any] interface {
+type Queue[O objects.Object] interface {
 	Collection[O]
 
 	Offer(value O) error
@@ -10,7 +10,7 @@ type Queue[O any] interface {
 	Pop() (O, error)
 }
 
-func queueEquals[O any](left, right any, converter objects.ObjectConverter[O]) bool {
+func queueEquals[O objects.Object](left, right any) bool {
 	lQueue, lOk := left.(Queue[O])
 	rQueue, rOk := right.(Queue[O])
 
@@ -29,17 +29,17 @@ func queueEquals[O any](left, right any, converter objects.ObjectConverter[O]) b
 		l := lIterator.Next()
 		r := rIterator.Next()
 
-		if !converter.Equals(l, r) {
+		if !l.Equals(r) {
 			return false
 		}
 	}
 	return lIterator.HasNext() == rIterator.HasNext()
 }
 
-func queueHashCode[O any](queue Queue[O], converter objects.ObjectConverter[O]) uint64 {
+func queueHashCode[O objects.Object](queue Queue[O]) uint64 {
 	hashcode := uint64(13997)
 	for iterator := queue.Iterator(); iterator.HasNext(); {
-		hashcode = hashcode * converter.HashCode(iterator.Next())
+		hashcode = hashcode * iterator.Next().HashCode()
 	}
 	return hashcode
 }

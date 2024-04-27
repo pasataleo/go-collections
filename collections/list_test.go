@@ -7,7 +7,7 @@ import (
 	"github.com/pasataleo/go-testing/tests"
 )
 
-func runListTests(t *testing.T, init func() List[objects.String], data map[string]objects.String) {
+func runListTests(t *testing.T, init func() List[*objects.String], data map[string]*objects.String) {
 	t.Run("list_insert", func(t *testing.T) {
 		list := init()
 

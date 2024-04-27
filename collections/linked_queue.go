@@ -2,28 +2,16 @@ package collections
 
 import "github.com/pasataleo/go-objects/objects"
 
-type linkedQueue[O any] struct {
+type linkedQueue[O objects.Object] struct {
 	list *linkedList[O]
 }
 
 func NewQueue[O objects.Object]() Queue[O] {
 	return &linkedQueue[O]{
 		list: &linkedList[O]{
-			first:     nil,
-			last:      nil,
-			size:      0,
-			converter: objects.ObjectIdentityConverter[O](),
-		},
-	}
-}
-
-func NewQueueT[O any](converter objects.ObjectConverter[O]) Queue[O] {
-	return &linkedQueue[O]{
-		list: &linkedList[O]{
-			first:     nil,
-			last:      nil,
-			size:      0,
-			converter: converter,
+			first: nil,
+			last:  nil,
+			size:  0,
 		},
 	}
 }
@@ -31,15 +19,23 @@ func NewQueueT[O any](converter objects.ObjectConverter[O]) Queue[O] {
 // Object implementation
 
 func (q *linkedQueue[O]) Equals(other any) bool {
-	return queueEquals(q, other, q.list.converter)
+	return queueEquals[O](q, other)
 }
 
 func (q *linkedQueue[O]) HashCode() uint64 {
-	return queueHashCode[O](q, q.list.converter)
+	return queueHashCode[O](q)
 }
 
-func (q *linkedQueue[O]) ToString() string {
-	return q.list.ToString()
+func (q *linkedQueue[O]) String() string {
+	return q.list.String()
+}
+
+func (q *linkedQueue[O]) MarshalJSON() ([]byte, error) {
+	return q.list.MarshalJSON()
+}
+
+func (q *linkedQueue[O]) UnmarshalJSON(bytes []byte) error {
+	return q.list.UnmarshalJSON(bytes)
 }
 
 // Iterable implementation
@@ -86,6 +82,10 @@ func (q *linkedQueue[O]) Size() int {
 
 func (q *linkedQueue[O]) IsEmpty() bool {
 	return q.list.Size() == 0
+}
+
+func (q *linkedQueue[O]) Clear() {
+	q.list.Clear()
 }
 
 // Queue implementation

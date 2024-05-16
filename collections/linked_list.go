@@ -177,7 +177,11 @@ func (list *linkedList[O]) Insert(value O, ix int) error {
 	if current.before == nil {
 		// Then this is the first node.
 		list.first = node
+	} else {
+		// Set the before node's after to the new node.
+		current.before.after = node
 	}
+	// Set the current node's before to the new node.
 	current.before = node
 	list.size = list.size + 1
 	return nil

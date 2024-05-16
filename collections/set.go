@@ -1,5 +1,7 @@
 package collections
 
-type Set[O any] interface {
+import "github.com/pasataleo/go-objects/objects"
+
+type Set[O objects.Object] interface {
 	Collection[O]
 }

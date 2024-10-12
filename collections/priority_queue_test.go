@@ -20,20 +20,20 @@ func TestHeap_Collection(t *testing.T) {
 func TestHeap(t *testing.T) {
 	heap := NewPriorityQueue[*objects.String]()
 
-	tests.ExecFn(t, heap.Offer, objects.WrapString("a")).NoError()
-	tests.ExecFn(t, heap.Offer, objects.WrapString("c")).NoError()
-	tests.ExecFn(t, heap.Offer, objects.WrapString("b")).NoError()
-	tests.ExecFn(t, heap.Size).Equals(3)
+	tests.ExecuteE(heap.Offer(objects.WrapString("a"))).NoError(t)
+	tests.ExecuteE(heap.Offer(objects.WrapString("c"))).NoError(t)
+	tests.ExecuteE(heap.Offer(objects.WrapString("b"))).NoError(t)
+	tests.Execute(heap.Size()).Equal(t, 3)
 
-	tests.ExecFn(t, heap.Peep).NoError().ObjectEquals(objects.WrapString("a"))
-	tests.ExecFn(t, heap.Pop).NoError().ObjectEquals(objects.WrapString("a"))
-	tests.ExecFn(t, heap.Size).Equals(2)
+	tests.Execute2E(heap.Peep()).NoError(t).Equal(t, objects.WrapString("a"))
+	tests.Execute2E(heap.Pop()).NoError(t).Equal(t, objects.WrapString("a"))
+	tests.Execute(heap.Size()).Equal(t, 2)
 
-	tests.ExecFn(t, heap.Peep).NoError().ObjectEquals(objects.WrapString("b"))
-	tests.ExecFn(t, heap.Pop).NoError().ObjectEquals(objects.WrapString("b"))
-	tests.ExecFn(t, heap.Size).Equals(1)
+	tests.Execute2E(heap.Peep()).NoError(t).Equal(t, objects.WrapString("b"))
+	tests.Execute2E(heap.Pop()).NoError(t).Equal(t, objects.WrapString("b"))
+	tests.Execute(heap.Size()).Equal(t, 1)
 
-	tests.ExecFn(t, heap.Peep).NoError().ObjectEquals(objects.WrapString("c"))
-	tests.ExecFn(t, heap.Pop).NoError().ObjectEquals(objects.WrapString("c"))
-	tests.ExecFn(t, heap.Size).Equals(0)
+	tests.Execute2E(heap.Peep()).NoError(t).Equal(t, objects.WrapString("c"))
+	tests.Execute2E(heap.Pop()).NoError(t).Equal(t, objects.WrapString("c"))
+	tests.Execute(heap.Size()).Equal(t, 0)
 }

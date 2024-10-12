@@ -11,74 +11,74 @@ func runListTests(t *testing.T, init func() List[*objects.String], data map[stri
 	t.Run("list_insert", func(t *testing.T) {
 		list := init()
 
-		tests.ExecFn(t, list.Insert, data["zero"], 0).NoError()
-		tests.ExecFn(t, list.Insert, data["one"], 1).NoError()
-		tests.ExecFn(t, list.Insert, data["two"], 2).NoError()
+		tests.ExecuteE(list.Insert(data["zero"], 0)).NoError(t)
+		tests.ExecuteE(list.Insert(data["one"], 1)).NoError(t)
+		tests.ExecuteE(list.Insert(data["two"], 2)).NoError(t)
 
-		tests.ExecFn(t, list.Size).Equals(3)
-		tests.ExecFn(t, list.Get, 0).NoError().ObjectEquals(data["zero"])
-		tests.ExecFn(t, list.Get, 1).NoError().ObjectEquals(data["one"])
-		tests.ExecFn(t, list.Get, 2).NoError().ObjectEquals(data["two"])
+		tests.Execute(list.Size()).Equal(t, 3)
+		tests.Execute2E(list.Get(0)).NoError(t).Equal(t, data["zero"])
+		tests.Execute2E(list.Get(1)).NoError(t).Equal(t, data["one"])
+		tests.Execute2E(list.Get(2)).NoError(t).Equal(t, data["two"])
 
-		tests.ExecFn(t, list.Insert, data["three"], 4).ErrorCode(ErrorCodeOutOfBounds)
-		tests.ExecFn(t, list.Insert, data["three"], -1).ErrorCode(ErrorCodeOutOfBounds)
+		tests.ExecuteE(list.Insert(data["three"], 4)).ErrorCode(t, ErrorCodeOutOfBounds)
+		tests.ExecuteE(list.Insert(data["three"], -1)).ErrorCode(t, ErrorCodeOutOfBounds)
 
-		tests.ExecFn(t, list.Insert, data["three"], 1)
-		tests.ExecFn(t, list.Insert, data["four"], 2)
+		tests.ExecuteE(list.Insert(data["three"], 1)).NoError(t)
+		tests.ExecuteE(list.Insert(data["four"], 2)).NoError(t)
 
-		tests.ExecFn(t, list.Size).Equals(5)
-		tests.ExecFn(t, list.Get, 0).NoError().ObjectEquals(data["zero"])
-		tests.ExecFn(t, list.Get, 1).NoError().ObjectEquals(data["three"])
-		tests.ExecFn(t, list.Get, 2).NoError().ObjectEquals(data["four"])
-		tests.ExecFn(t, list.Get, 3).NoError().ObjectEquals(data["one"])
-		tests.ExecFn(t, list.Get, 4).NoError().ObjectEquals(data["two"])
+		tests.Execute(list.Size()).Equal(t, 5)
+		tests.Execute2E(list.Get(0)).NoError(t).Equal(t, data["zero"])
+		tests.Execute2E(list.Get(1)).NoError(t).Equal(t, data["three"])
+		tests.Execute2E(list.Get(2)).NoError(t).Equal(t, data["four"])
+		tests.Execute2E(list.Get(3)).NoError(t).Equal(t, data["one"])
+		tests.Execute2E(list.Get(4)).NoError(t).Equal(t, data["two"])
 	})
 
 	t.Run("list_replace", func(t *testing.T) {
 		list := init()
 
-		tests.ExecFn(t, list.Insert, data["zero"], 0).NoError()
-		tests.ExecFn(t, list.Insert, data["one"], 1).NoError()
-		tests.ExecFn(t, list.Insert, data["two"], 2).NoError()
+		tests.ExecuteE(list.Insert(data["zero"], 0)).NoError(t)
+		tests.ExecuteE(list.Insert(data["one"], 1)).NoError(t)
+		tests.ExecuteE(list.Insert(data["two"], 2)).NoError(t)
 
-		tests.ExecFn(t, list.Size).Equals(3)
-		tests.ExecFn(t, list.Get, 0).NoError().ObjectEquals(data["zero"])
-		tests.ExecFn(t, list.Get, 1).NoError().ObjectEquals(data["one"])
-		tests.ExecFn(t, list.Get, 2).NoError().ObjectEquals(data["two"])
+		tests.Execute(list.Size()).Equal(t, 3)
+		tests.Execute2E(list.Get(0)).NoError(t).Equal(t, data["zero"])
+		tests.Execute2E(list.Get(1)).NoError(t).Equal(t, data["one"])
+		tests.Execute2E(list.Get(2)).NoError(t).Equal(t, data["two"])
 
-		tests.ExecFn(t, list.Replace, data["two"], 0).NoError()
-		tests.ExecFn(t, list.Replace, data["three"], 2).NoError()
+		tests.Execute2E(list.Replace(data["two"], 0)).NoError(t)
+		tests.Execute2E(list.Replace(data["one"], 1)).NoError(t)
 
-		tests.ExecFn(t, list.Size).Equals(3)
-		tests.ExecFn(t, list.Get, 0).NoError().ObjectEquals(data["two"])
-		tests.ExecFn(t, list.Get, 1).NoError().ObjectEquals(data["one"])
-		tests.ExecFn(t, list.Get, 2).NoError().ObjectEquals(data["three"])
+		tests.Execute(list.Size()).Equal(t, 3)
+		tests.Execute2E(list.Get(0)).NoError(t).Equal(t, data["two"])
+		tests.Execute2E(list.Get(1)).NoError(t).Equal(t, data["one"])
+		tests.Execute2E(list.Get(2)).NoError(t).Equal(t, data["two"])
 
-		tests.ExecFn(t, list.Replace, data["four"], -1).ErrorCode(ErrorCodeOutOfBounds)
-		tests.ExecFn(t, list.Replace, data["four"], 4).ErrorCode(ErrorCodeOutOfBounds)
+		tests.Execute2E(list.Replace(data["four"], -1)).ErrorCode(t, ErrorCodeOutOfBounds)
+		tests.Execute2E(list.Replace(data["four"], 4)).ErrorCode(t, ErrorCodeOutOfBounds)
 	})
 
 	t.Run("list_remove", func(t *testing.T) {
 		list := init()
 
-		tests.ExecFn(t, list.Insert, data["zero"], 0).NoError()
-		tests.ExecFn(t, list.Insert, data["one"], 1).NoError()
-		tests.ExecFn(t, list.Insert, data["two"], 2).NoError()
+		tests.ExecuteE(list.Insert(data["zero"], 0)).NoError(t)
+		tests.ExecuteE(list.Insert(data["one"], 1)).NoError(t)
+		tests.ExecuteE(list.Insert(data["two"], 2)).NoError(t)
 
-		tests.ExecFn(t, list.Size).Equals(3)
-		tests.ExecFn(t, list.RemoveAt, 1).NoError()
-		tests.ExecFn(t, list.Get, 1).NoError().ObjectEquals(data["two"])
+		tests.Execute(list.Size()).Equal(t, 3)
+		tests.Execute2E(list.RemoveAt(1)).NoError(t).Equal(t, data["one"])
+		tests.Execute2E(list.Get(1)).NoError(t).Equal(t, data["two"])
 	})
 
 	t.Run("list_index", func(t *testing.T) {
 		list := init()
 
-		tests.ExecFn(t, list.Insert, data["zero"], 0).NoError()
-		tests.ExecFn(t, list.Insert, data["one"], 1).NoError()
-		tests.ExecFn(t, list.Insert, data["two"], 2).NoError()
+		tests.ExecuteE(list.Insert(data["zero"], 0)).NoError(t)
+		tests.ExecuteE(list.Insert(data["one"], 1)).NoError(t)
+		tests.ExecuteE(list.Insert(data["two"], 2)).NoError(t)
 
-		tests.ExecFn(t, list.IndexOf, data["zero"]).Equals(0)
-		tests.ExecFn(t, list.IndexOf, data["one"]).Equals(1)
-		tests.ExecFn(t, list.IndexOf, data["two"]).Equals(2)
+		tests.Execute(list.IndexOf(data["zero"])).Equal(t, 0)
+		tests.Execute(list.IndexOf(data["one"])).Equal(t, 1)
+		tests.Execute(list.IndexOf(data["two"])).Equal(t, 2)
 	})
 }

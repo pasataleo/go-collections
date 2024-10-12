@@ -2,11 +2,17 @@ package collections
 
 import "github.com/pasataleo/go-objects/objects"
 
+// Queue is a collection that orders elements in a FIFO (first-in-first-out) manner.
 type Queue[O objects.Object] interface {
 	Collection[O]
 
+	// Offer adds an element to the end of the queue.
 	Offer(value O) error
+
+	// Peep returns the element at the front of the queue without removing it.
 	Peep() (O, error)
+
+	// Pop removes and returns the element at the front of the queue.
 	Pop() (O, error)
 }
 

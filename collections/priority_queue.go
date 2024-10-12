@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"iter"
 
 	"github.com/pasataleo/go-errors/errors"
 	"github.com/pasataleo/go-objects/objects"
@@ -15,10 +16,12 @@ type heap[O objects.Object] struct {
 	comparator objects.Comparator[O]
 }
 
+// NewPriorityQueue creates a new priority queue with the default comparator.
 func NewPriorityQueue[O objects.ComparableObject[O]]() Queue[O] {
 	return NewPriorityQueueO[O](objects.ComparableComparator[O]())
 }
 
+// NewPriorityQueueO creates a new priority queue with the given comparator.
 func NewPriorityQueueO[O objects.Object](comparator objects.Comparator[O]) Queue[O] {
 	return &heap[O]{
 		items:      nil,
@@ -28,14 +31,17 @@ func NewPriorityQueueO[O objects.Object](comparator objects.Comparator[O]) Queue
 
 // Object implementation
 
+// Equals implements objects.Object.
 func (h *heap[O]) Equals(other any) bool {
 	return queueEquals[O](h, other)
 }
 
+// HashCode implements objects.Object.
 func (h *heap[O]) HashCode() uint64 {
 	return queueHashCode[O](h)
 }
 
+// String implements objects.Object.
 func (h *heap[O]) String() string {
 	var buffer bytes.Buffer
 	buffer.WriteString("[")
@@ -72,30 +78,41 @@ func (h *heapIterator[O]) Next() O {
 	return value
 }
 
+// Iterator implements objects.Iterable.
 func (h *heap[O]) Iterator() objects.Iterator[O] {
 	return &heapIterator[O]{
 		safe: h.Copy().(*heap[O]),
 	}
 }
 
+// MarshalJSON implements json.Marshaler.
 func (h *heap[O]) MarshalJSON() ([]byte, error) {
 	return json.Marshal(h.items)
 }
 
+// UnmarshalJSON implements json.Unmarshaler.
 func (h *heap[O]) UnmarshalJSON(bytes []byte) error {
 	return json.Unmarshal(bytes, &h.items)
 }
 
 // Collection implementation
 
+// Elems implements Collection.
+func (h *heap[O]) Elems() iter.Seq[O] {
+	return objects.SequenceFrom[O](h)
+}
+
+// Add implements Collection.
 func (h *heap[O]) Add(value O) error {
 	return h.Offer(value)
 }
 
+// AddAll implements Collection.
 func (h *heap[O]) AddAll(values Collection[O]) error {
 	return collectionAddAll[O](h, values)
 }
 
+// Remove implements Collection.
 func (h *heap[O]) Remove(value O) error {
 	for ix, current := range h.items {
 		if current.Equals(value) {
@@ -103,13 +120,15 @@ func (h *heap[O]) Remove(value O) error {
 			return err
 		}
 	}
-	return errors.Embed(errors.New(nil, ErrorCodeNotFound, "not found"), value)
+	return errors.Embed(errors.New(nil, ErrorCodeNotFound, "not found"), "value", value)
 }
 
+// RemoveAll implements Collection.
 func (h *heap[O]) RemoveAll(values Collection[O]) error {
 	return collectionRemoveAll[O](h, values)
 }
 
+// Contains implements Collection.
 func (h *heap[O]) Contains(value O) bool {
 	for _, item := range h.items {
 		if item.Equals(value) {
@@ -119,10 +138,12 @@ func (h *heap[O]) Contains(value O) bool {
 	return false
 }
 
+// ContainsAll implements Collection.
 func (h *heap[O]) ContainsAll(values Collection[O]) bool {
 	return collectionContainsAll[O](h, values)
 }
 
+// Copy implements Collection.
 func (h *heap[O]) Copy() Collection[O] {
 	var contents []O
 	for _, value := range h.items {
@@ -134,20 +155,24 @@ func (h *heap[O]) Copy() Collection[O] {
 	}
 }
 
+// Size implements Collection.
 func (h *heap[O]) Size() int {
 	return len(h.items)
 }
 
+// IsEmpty implements Collection.
 func (h *heap[O]) IsEmpty() bool {
 	return len(h.items) == 0
 }
 
+// Clear implements Collection.
 func (h *heap[O]) Clear() {
 	h.items = nil
 }
 
 // Queue implementation
 
+// Offer implements Queue.
 func (h *heap[O]) Offer(value O) error {
 	ix := len(h.items)
 	h.items = append(h.items, value)
@@ -155,6 +180,7 @@ func (h *heap[O]) Offer(value O) error {
 	return nil
 }
 
+// Peep implements Queue.
 func (h *heap[O]) Peep() (O, error) {
 	if len(h.items) == 0 {
 		var null O
@@ -164,6 +190,7 @@ func (h *heap[O]) Peep() (O, error) {
 	return h.items[0], nil
 }
 
+// Pop implements Queue.
 func (h *heap[O]) Pop() (O, error) {
 	return h.remove(0)
 }

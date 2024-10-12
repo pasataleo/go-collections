@@ -8,15 +8,24 @@ import (
 	"github.com/pasataleo/go-objects/objects"
 )
 
+// List represents a collection of objects that can be accessed by index.
 type List[O objects.Object] interface {
 	Collection[O]
 
+	// IndexOf returns the index of the first occurrence of the given value in the list, or -1 if the value isn't in
+	// the list.
 	IndexOf(value O) int
 
+	// Get returns the value at the given index.
 	Get(ix int) (O, error)
 
+	// Insert adds the given value at the given index.
 	Insert(value O, ix int) error
+
+	// Replace replaces the value at the given index with the given value.
 	Replace(value O, ix int) (O, error)
+
+	// RemoveAt removes the value at the given index.
 	RemoveAt(ix int) (O, error)
 }
 
@@ -83,10 +92,12 @@ func listIndexOf[O objects.Object](list List[O], value O) int {
 	return -1
 }
 
+// Sort sorts the given list in ascending order.
 func Sort[O objects.ComparableObject[O]](list List[O]) {
 	SortT(list, objects.ComparableComparator[O]())
 }
 
+// SortT sorts the given list in ascending order using the given comparator.
 func SortT[O objects.Object](list List[O], comparator objects.Comparator[O]) {
 	switch l := list.(type) {
 	case *linkedList[O]:

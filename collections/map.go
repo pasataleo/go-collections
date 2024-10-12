@@ -3,10 +3,12 @@ package collections
 import (
 	"encoding/json"
 	"fmt"
+	"iter"
 
 	"github.com/pasataleo/go-objects/objects"
 )
 
+// MapEntry represents a key-value pair in a map.
 type MapEntry[K, V objects.Object] interface {
 	objects.Object
 
@@ -14,22 +16,41 @@ type MapEntry[K, V objects.Object] interface {
 	GetValue() V
 }
 
+// Map represents a collection of key-value pairs.
 type Map[K, V objects.Object] interface {
 	Collection[MapEntry[K, V]]
 
+	// Entries returns an iterator over the entries in the map.
+	Entries() iter.Seq2[K, V]
+
+	// ContainsKey returns true if the map contains the given key.
 	ContainsKey(key K) bool
 
+	// Put inserts a key-value pair into the map.
 	Put(key K, value V) error
+
+	// Replace replaces the value associated with the given key.
 	Replace(key K, value V) (V, error)
+
+	// PutOrReplace inserts or replaces a key-value pair in the map.
 	PutOrReplace(key K, value V) (V, bool)
 
+	// Delete removes the key-value pair associated with the given key.
 	Delete(key K) (V, error)
+
+	// DeleteIfPresent removes the key-value pair associated with the given key if it exists.
 	DeleteIfPresent(key K) (V, bool)
 
+	// Get returns the value associated with the given key.
 	Get(key K) V
+
+	// GetSafe returns the value associated with the given key or an error if the key does not exist.
 	GetSafe(key K) (V, error)
 
+	// Keys returns a collection of the keys in the map.
 	Keys() Collection[K]
+
+	// Values returns a collection of the values in the map.
 	Values() Collection[V]
 }
 

@@ -2,6 +2,7 @@ package collections
 
 import "github.com/pasataleo/go-objects/objects"
 
+// hashSetIterator is an iterator for hashSet.
 type hashSetIterator[O objects.Object] struct {
 	set *hashSet[O]
 
@@ -11,10 +12,12 @@ type hashSetIterator[O objects.Object] struct {
 	valueI int
 }
 
+// HasNext implements objects.Iterator.
 func (iterator *hashSetIterator[O]) HasNext() bool {
 	return iterator.keyI < len(iterator.keys)
 }
 
+// Next implements objects.Iterator.
 func (iterator *hashSetIterator[O]) Next() O {
 	if iterator.keyI < 0 || iterator.keyI >= len(iterator.keys) {
 		panic("out of bounds")

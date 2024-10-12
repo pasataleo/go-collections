@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"iter"
 
 	"github.com/pasataleo/go-errors/errors"
 	"github.com/pasataleo/go-objects/objects"
@@ -14,14 +15,21 @@ type hashMap[K objects.Object, V objects.Object] struct {
 	size   int
 }
 
-func NewHashMap[K objects.Object, V objects.Object]() Map[K, V] {
-	return &hashMap[K, V]{
+// NewHashMap creates a new hash map with the given elements.
+func NewHashMap[K objects.Object, V objects.Object](entries ...MapEntry[K, V]) Map[K, V] {
+	m := &hashMap[K, V]{
 		values: make(map[uint64][]MapEntry[K, V]),
 	}
+	for _, entry := range entries {
+		_ = m.Put(entry.GetKey(), entry.GetValue())
+	}
+
+	return m
 }
 
 // Object implementation
 
+// Equals implements objects.Object.
 func (h *hashMap[K, V]) Equals(other any) bool {
 	if lMap, ok := other.(Map[K, V]); ok {
 		if lMap.Size() != h.Size() {
@@ -44,6 +52,7 @@ func (h *hashMap[K, V]) Equals(other any) bool {
 	return false
 }
 
+// HashCode implements objects.Object.
 func (h *hashMap[K, V]) HashCode() uint64 {
 	hash := uint64(13001)
 	for iterator := h.Iterator(); iterator.HasNext(); {
@@ -53,6 +62,7 @@ func (h *hashMap[K, V]) HashCode() uint64 {
 	return hash
 }
 
+// String implements objects.Object.
 func (h *hashMap[K, V]) String() string {
 	var buffer bytes.Buffer
 	buffer.WriteString("{")
@@ -72,6 +82,7 @@ func (h *hashMap[K, V]) String() string {
 	return buffer.String()
 }
 
+// MarshalJSON implements objects.Object.
 func (h *hashMap[K, V]) MarshalJSON() ([]byte, error) {
 	var entries []MapEntry[K, V]
 	for iterator := h.Iterator(); iterator.HasNext(); {
@@ -80,6 +91,7 @@ func (h *hashMap[K, V]) MarshalJSON() ([]byte, error) {
 	return json.Marshal(entries)
 }
 
+// UnmarshalJSON implements objects.Object.
 func (h *hashMap[K, V]) UnmarshalJSON(bytes []byte) error {
 	var entries []MapEntry[K, V]
 	if err := json.Unmarshal(bytes, &entries); err != nil {
@@ -97,6 +109,7 @@ func (h *hashMap[K, V]) UnmarshalJSON(bytes []byte) error {
 
 // Iterable implementation
 
+// Iterator implements objects.Iterable.
 func (h *hashMap[K, V]) Iterator() objects.Iterator[MapEntry[K, V]] {
 	return &hashMapIterator[K, V]{
 		set: h,
@@ -112,27 +125,37 @@ func (h *hashMap[K, V]) Iterator() objects.Iterator[MapEntry[K, V]] {
 
 // Collection implementation
 
+// Elems implements Collection.
+func (h *hashMap[K, V]) Elems() iter.Seq[MapEntry[K, V]] {
+	return objects.SequenceFrom[MapEntry[K, V]](h)
+}
+
+// Add implements Collection.
 func (h *hashMap[K, V]) Add(value MapEntry[K, V]) error {
 	return h.Put(value.GetKey(), value.GetValue())
 }
 
+// AddAll implements Collection.
 func (h *hashMap[K, V]) AddAll(values Collection[MapEntry[K, V]]) error {
 	return collectionAddAll[MapEntry[K, V]](h, values)
 }
 
+// Remove implements Collection.
 func (h *hashMap[K, V]) Remove(value MapEntry[K, V]) error {
 	if !h.Contains(value) {
-		return errors.Embed(errors.New(nil, ErrorCodeNotFound, "not found"), value)
+		return errors.Embed(errors.New(nil, ErrorCodeNotFound, "not found"), "key", value.GetKey())
 	}
 
 	_, err := h.Delete(value.GetKey())
 	return err
 }
 
+// RemoveAll implements Collection.
 func (h *hashMap[K, V]) RemoveAll(values Collection[MapEntry[K, V]]) error {
 	return collectionRemoveAll[MapEntry[K, V]](h, values)
 }
 
+// Contains implements Collection.
 func (h *hashMap[K, V]) Contains(value MapEntry[K, V]) bool {
 	if !h.ContainsKey(value.GetKey()) {
 		return false
@@ -142,10 +165,12 @@ func (h *hashMap[K, V]) Contains(value MapEntry[K, V]) bool {
 	return value.GetValue().Equals(contained)
 }
 
+// ContainsAll implements Collection.
 func (h *hashMap[K, V]) ContainsAll(values Collection[MapEntry[K, V]]) bool {
 	return collectionContainsAll[MapEntry[K, V]](h, values)
 }
 
+// Copy implements Collection.
 func (h *hashMap[K, V]) Copy() Collection[MapEntry[K, V]] {
 	newMap := NewHashMap[K, V]()
 	for iterator := h.Iterator(); iterator.HasNext(); {
@@ -154,14 +179,17 @@ func (h *hashMap[K, V]) Copy() Collection[MapEntry[K, V]] {
 	return newMap
 }
 
+// Size implements Collection.
 func (h *hashMap[K, V]) Size() int {
 	return h.size
 }
 
+// IsEmpty implements Collection.
 func (h *hashMap[K, V]) IsEmpty() bool {
 	return h.Size() == 0
 }
 
+// Clear implements Collection.
 func (h *hashMap[K, V]) Clear() {
 	h.values = make(map[uint64][]MapEntry[K, V])
 	h.size = 0
@@ -169,6 +197,19 @@ func (h *hashMap[K, V]) Clear() {
 
 // Map implementation
 
+// Entries implements Map.
+func (h *hashMap[K, V]) Entries() iter.Seq2[K, V] {
+	return func(yield func(K, V) bool) {
+		for iterator := h.Iterator(); iterator.HasNext(); {
+			entry := iterator.Next()
+			if !yield(entry.GetKey(), entry.GetValue()) {
+				return
+			}
+		}
+	}
+}
+
+// ContainsKey implements Map.
 func (h *hashMap[K, V]) ContainsKey(key K) bool {
 	hash := key.HashCode()
 
@@ -181,6 +222,7 @@ func (h *hashMap[K, V]) ContainsKey(key K) bool {
 	return false
 }
 
+// Put implements Map.
 func (h *hashMap[K, V]) Put(key K, value V) error {
 	hash := key.HashCode()
 
@@ -192,7 +234,7 @@ func (h *hashMap[K, V]) Put(key K, value V) error {
 	values := h.values[hash]
 	for _, entry := range values {
 		if key.Equals(entry.GetKey()) {
-			return errors.Embed(errors.New(nil, ErrorCodeAlreadyExists, "already exists"), key)
+			return errors.Embed(errors.New(nil, ErrorCodeAlreadyExists, "already exists"), "key", key)
 		}
 	}
 	values = append(values, newEntry)
@@ -201,6 +243,7 @@ func (h *hashMap[K, V]) Put(key K, value V) error {
 	return nil
 }
 
+// Replace implements Map.
 func (h *hashMap[K, V]) Replace(key K, value V) (V, error) {
 	hash := key.HashCode()
 
@@ -220,9 +263,10 @@ func (h *hashMap[K, V]) Replace(key K, value V) (V, error) {
 	}
 
 	var obj V
-	return obj, errors.Embed(errors.New(nil, ErrorCodeNotFound, "not found"), key)
+	return obj, errors.Embed(errors.New(nil, ErrorCodeNotFound, "not found"), "key", key)
 }
 
+// PutOrReplace implements Map.
 func (h *hashMap[K, V]) PutOrReplace(key K, value V) (V, bool) {
 	hash := key.HashCode()
 
@@ -247,6 +291,7 @@ func (h *hashMap[K, V]) PutOrReplace(key K, value V) (V, bool) {
 	return value, false
 }
 
+// Delete implements Map.
 func (h *hashMap[K, V]) Delete(key K) (V, error) {
 	hash := key.HashCode()
 
@@ -261,9 +306,10 @@ func (h *hashMap[K, V]) Delete(key K) (V, error) {
 	}
 
 	var obj V
-	return obj, errors.Embed(errors.New(nil, ErrorCodeNotFound, "not found"), key)
+	return obj, errors.Embed(errors.New(nil, ErrorCodeNotFound, "not found"), "key", key)
 }
 
+// DeleteIfPresent implements Map.
 func (h *hashMap[K, V]) DeleteIfPresent(key K) (V, bool) {
 	hash := key.HashCode()
 
@@ -281,6 +327,7 @@ func (h *hashMap[K, V]) DeleteIfPresent(key K) (V, bool) {
 	return obj, false
 }
 
+// Get implements Map.
 func (h *hashMap[K, V]) Get(key K) V {
 	hash := key.HashCode()
 
@@ -293,6 +340,7 @@ func (h *hashMap[K, V]) Get(key K) V {
 	panic("not found")
 }
 
+// GetSafe implements Map.
 func (h *hashMap[K, V]) GetSafe(key K) (V, error) {
 	hash := key.HashCode()
 
@@ -304,9 +352,10 @@ func (h *hashMap[K, V]) GetSafe(key K) (V, error) {
 	}
 
 	var obj V
-	return obj, errors.Embed(errors.New(nil, ErrorCodeNotFound, "not found"), key)
+	return obj, errors.Embed(errors.New(nil, ErrorCodeNotFound, "not found"), "key", key)
 }
 
+// Keys implements Map.
 func (h *hashMap[K, V]) Keys() Collection[K] {
 	set := NewHashSet[K]()
 	for iterator := h.Iterator(); iterator.HasNext(); {
@@ -318,6 +367,7 @@ func (h *hashMap[K, V]) Keys() Collection[K] {
 	return set
 }
 
+// Values implements Map.
 func (h *hashMap[K, V]) Values() Collection[V] {
 	list := NewArrayList[V]()
 	for iterator := h.Iterator(); iterator.HasNext(); {

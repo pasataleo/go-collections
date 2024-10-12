@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"iter"
 
 	"github.com/pasataleo/go-errors/errors"
 	"github.com/pasataleo/go-objects/objects"
@@ -14,6 +15,7 @@ type hashSet[O objects.Object] struct {
 	size   int
 }
 
+// NewHashSet creates a new hash set.
 func NewHashSet[O objects.Object]() Set[O] {
 	return &hashSet[O]{
 		values: make(map[uint64][]O),
@@ -23,6 +25,7 @@ func NewHashSet[O objects.Object]() Set[O] {
 
 // Object implementation
 
+// Equals implements objects.Object.
 func (set *hashSet[O]) Equals(other any) bool {
 	if lSet, ok := other.(Set[O]); ok {
 		if lSet.Size() != set.Size() {
@@ -39,6 +42,7 @@ func (set *hashSet[O]) Equals(other any) bool {
 	return false
 }
 
+// HashCode implements objects.Object.
 func (set *hashSet[O]) HashCode() uint64 {
 	hash := uint64(13001)
 	for iterator := set.Iterator(); iterator.HasNext(); {
@@ -47,6 +51,7 @@ func (set *hashSet[O]) HashCode() uint64 {
 	return hash
 }
 
+// String implements objects.Object.
 func (set *hashSet[O]) String() string {
 	var buffer bytes.Buffer
 	buffer.WriteString("[")
@@ -65,6 +70,7 @@ func (set *hashSet[O]) String() string {
 	return buffer.String()
 }
 
+// MarshalJSON implements json.Marshaler.
 func (set *hashSet[O]) MarshalJSON() ([]byte, error) {
 	var values []O
 	for iterator := set.Iterator(); iterator.HasNext(); {
@@ -73,6 +79,7 @@ func (set *hashSet[O]) MarshalJSON() ([]byte, error) {
 	return json.Marshal(values)
 }
 
+// UnmarshalJSON implements json.Unmarshaler.
 func (set *hashSet[O]) UnmarshalJSON(bytes []byte) error {
 	var values []O
 	if err := json.Unmarshal(bytes, &values); err != nil {
@@ -90,6 +97,7 @@ func (set *hashSet[O]) UnmarshalJSON(bytes []byte) error {
 
 // Iterable implementation
 
+// Iterator implements objects.Iterable.
 func (set *hashSet[O]) Iterator() objects.Iterator[O] {
 	return &hashSetIterator[O]{
 		set: set,
@@ -105,6 +113,18 @@ func (set *hashSet[O]) Iterator() objects.Iterator[O] {
 
 // Collection implementation
 
+// Elems implements Collection.
+func (set *hashSet[O]) Elems() iter.Seq[O] {
+	return func(yield func(O) bool) {
+		for _, values := range set.values {
+			for _, value := range values {
+				yield(value)
+			}
+		}
+	}
+}
+
+// Contains implements Collection.
 func (set *hashSet[O]) Contains(value O) bool {
 	hash := value.HashCode()
 	for _, contained := range set.values[hash] {
@@ -115,16 +135,18 @@ func (set *hashSet[O]) Contains(value O) bool {
 	return false
 }
 
+// ContainsAll implements Collection.
 func (set *hashSet[O]) ContainsAll(values Collection[O]) bool {
 	return collectionContainsAll[O](set, values)
 }
 
+// Add implements Collection.
 func (set *hashSet[O]) Add(value O) error {
 	hash := value.HashCode()
 	values := set.values[hash]
 	for _, contained := range values {
 		if value.Equals(contained) {
-			return errors.Embed(errors.New(nil, ErrorCodeAlreadyExists, "already exists"), value)
+			return errors.Embed(errors.New(nil, ErrorCodeAlreadyExists, "already exists"), "value", value)
 		}
 	}
 	values = append(values, value)
@@ -133,10 +155,12 @@ func (set *hashSet[O]) Add(value O) error {
 	return nil
 }
 
+// AddAll implements Collection.
 func (set *hashSet[O]) AddAll(values Collection[O]) error {
 	return collectionAddAll[O](set, values)
 }
 
+// Remove implements Collection.
 func (set *hashSet[O]) Remove(value O) error {
 	hash := value.HashCode()
 	values := set.values[hash]
@@ -147,13 +171,15 @@ func (set *hashSet[O]) Remove(value O) error {
 			return nil
 		}
 	}
-	return errors.Embed(errors.New(nil, ErrorCodeNotFound, "not found"), value)
+	return errors.Embed(errors.New(nil, ErrorCodeNotFound, "not found"), "value", value)
 }
 
+// RemoveAll implements Collection.
 func (set *hashSet[O]) RemoveAll(values Collection[O]) error {
 	return collectionRemoveAll[O](set, values)
 }
 
+// Copy implements Collection.
 func (set *hashSet[O]) Copy() Collection[O] {
 	newSet := NewHashSet[O]()
 	for iterator := set.Iterator(); iterator.HasNext(); {
@@ -162,14 +188,17 @@ func (set *hashSet[O]) Copy() Collection[O] {
 	return newSet
 }
 
+// Size implements Collection.
 func (set *hashSet[O]) Size() int {
 	return set.size
 }
 
+// IsEmpty implements Collection.
 func (set *hashSet[O]) IsEmpty() bool {
 	return set.Size() == 0
 }
 
+// Clear implements Collection.
 func (set *hashSet[O]) Clear() {
 	set.values = make(map[uint64][]O)
 	set.size = 0
